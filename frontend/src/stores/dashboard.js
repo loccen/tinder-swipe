@@ -31,6 +31,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const monthlyCost = ref(0)
     const loading = ref(false)
     const destroying = ref(false)
+    const checkingProxy = ref(false)
+    const proxyIp = ref(null)
 
     // 加载仪表盘数据
     async function load() {
@@ -65,6 +67,26 @@ export const useDashboardStore = defineStore('dashboard', () => {
         }
     }
 
+    // 检查代理 IP
+    async function checkProxyIp() {
+        checkingProxy.value = true
+        proxyIp.value = null
+        try {
+            const result = await api.dashboard.checkProxyIp()
+            if (result.success) {
+                proxyIp.value = result.ip
+            } else {
+                throw new Error(result.error)
+            }
+            return result
+        } catch (error) {
+            console.error('检查代理 IP 失败:', error)
+            throw error
+        } finally {
+            checkingProxy.value = false
+        }
+    }
+
     // 格式化速度显示
     function formatSpeed(bytesPerSecond) {
         if (bytesPerSecond >= 1024 * 1024) {
@@ -83,8 +105,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
         monthlyCost,
         loading,
         destroying,
+        checkingProxy,
+        proxyIp,
         load,
         emergencyDestroy,
+        checkProxyIp,
         formatSpeed
     }
 })

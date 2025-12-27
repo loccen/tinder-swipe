@@ -51,6 +51,9 @@ class Orchestrator:
         # 恢复僵尸实例
         await self._recover_zombie_instances()
         
+        # 恢复由于重启中断的 PROVISIONING 批次
+        await self._resume_provisioning_batches()
+        
         # 启动后台任务
         self._aggregation_task = asyncio.create_task(self._aggregation_loop())
         self._monitor_task = asyncio.create_task(self._monitor_loop())
@@ -107,6 +110,25 @@ class Orchestrator:
                     local.status = LinodeStatus.DESTROYED.value
                     local.destroyed_at = datetime.now()
                     logger.info(f"实例 {local.linode_id} 已不存在，更新状态")
+            
+            await db.commit()
+            
+    async def _resume_provisioning_batches(self):
+        """恢复处于 PROVISIONING 状态的批次"""
+        logger.info("检查并恢复处理中的批次...")
+        async with get_db_context() as db:
+            stmt = select(Batch).where(
+                Batch.status == BatchStatus.PROVISIONING.value
+            )
+            result = await db.execute(stmt)
+            batches = result.scalars().all()
+            
+            for batch in batches:
+                if batch.linode_id:
+                    logger.info(f"重新接管批次 #{batch.id} (Linode ID: {batch.linode_id})")
+                    asyncio.create_task(
+                        self._wait_and_activate_batch(batch.id, batch.linode_id)
+                    )
             
             await db.commit()
     
@@ -385,12 +407,17 @@ class Orchestrator:
             # 等待离线完成 (简化处理，实际应轮询)
             await asyncio.sleep(10)
         else:
-            # PikPak 分享链接
-            share_id = pikpak_service.parse_share_url(source_url)
-            if share_id:
-                # TODO: 处理分享链接
-                logger.warning(f"任务 {task.id}: 暂不支持分享链接")
-                return
+            # PikPak 分享链接：执行转存
+            logger.info(f"任务 {task.id}: 转存分享链接内容...")
+            file_ids = await pikpak_service.transfer_share_content(source_url)
+            if not file_ids:
+                raise Exception("PikPak 转存分享失败")
+            
+            # 记录其中一个文件 ID 以便后续递归提取 (通常分享里包含的主要内容)
+            task.pikpak_file_id = file_ids[0]
+            
+            # 转存通常很快，但也稍微等一下确保网盘可见
+            await asyncio.sleep(3)
         
         # 获取视频文件列表
         if task.pikpak_file_id:
@@ -425,6 +452,7 @@ class Orchestrator:
                 await self._check_batch_completion()
                 await self._check_batch_timeouts()
                 await self._cleanup_orphan_instances()
+                await self._check_and_push_active_tasks()
                 await self._update_linode_cost()
             except Exception as e:
                 logger.error(f"监控循环异常: {e}")
@@ -641,6 +669,26 @@ class Orchestrator:
                         await self._destroy_linode(db, linode)
             
             await db.commit()
+
+    async def _check_and_push_active_tasks(self):
+        """检查活跃批次中是否有尚未推送的任务并进行补推"""
+        async with get_db_context() as db:
+            # 查找所有活跃状态的批次
+            stmt = select(Batch).where(Batch.status == BatchStatus.ACTIVE.value)
+            result = await db.execute(stmt)
+            active_batches = result.scalars().all()
+            
+            for batch in active_batches:
+                # 检查该批次下是否有处于 CONFIRMED 状态的任务
+                task_stmt = select(func.count()).select_from(Task).where(
+                    Task.batch_id == batch.id,
+                    Task.status == TaskStatus.CONFIRMED.value
+                )
+                task_count_result = await db.execute(task_stmt)
+                if task_count_result.scalar() > 0:
+                    logger.info(f"发现活跃批次 #{batch.id} 存在待处理任务，尝试推送...")
+                    # 重新触发推送逻辑
+                    asyncio.create_task(self._push_download_tasks(batch.id))
 
     async def _destroy_linode_orphan(self, linode_id: int):
         """后台销毁孤儿实例"""

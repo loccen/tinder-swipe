@@ -14,9 +14,10 @@ from app.schemas import (
     DashboardStats,
     LinodeStatus,
     Aria2Stats,
-    EmergencyDestroyResponse
+    EmergencyDestroyResponse,
+    ProxyCheckResponse
 )
-from app.services import get_aria2_client, get_orchestrator
+from app.services import get_aria2_client, get_orchestrator, get_proxy_tester
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -128,3 +129,31 @@ async def emergency_destroy():
         message=f"已销毁 {destroyed_count} 个实例",
         destroyed_count=destroyed_count
     )
+
+
+@router.post("/proxy-check", response_model=ProxyCheckResponse)
+async def check_proxy_ip(db: AsyncSession = Depends(get_db)):
+    """检查当前代理的出口 IP"""
+    # 获取运行中的实例
+    stmt = select(Linode).where(
+        Linode.status == LinodeStatusEnum.RUNNING.value
+    ).limit(1)
+    result = await db.execute(stmt)
+    linode = result.scalar_one_or_none()
+    
+    if not linode:
+        return ProxyCheckResponse(success=False, error="当前没有运行中的代理实例")
+    
+    proxy_tester = get_proxy_tester()
+    try:
+        ip = await proxy_tester.check_proxy_ip(
+            linode.ip_address,
+            linode.hysteria_port,
+            linode.hysteria_password
+        )
+        if ip:
+            return ProxyCheckResponse(ip=ip, success=True)
+        else:
+            return ProxyCheckResponse(success=False, error="代理连接超时或不可达")
+    except Exception as e:
+        return ProxyCheckResponse(success=False, error=str(e))

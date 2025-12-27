@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-view">
     <van-nav-bar title="仪表盘" :border="false" />
-    
+
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
       <div class="dashboard">
         <!-- 任务统计 -->
@@ -19,27 +19,24 @@
             <div class="label">已完成</div>
           </div>
         </div>
-        
+
         <!-- 下载速度 -->
         <div class="speed-display">
           <div class="speed-value">
             ↓ {{ dashboardStore.formatSpeed(dashboardStore.aria2.download_speed) }}
           </div>
           <div class="speed-label">
-            {{ dashboardStore.aria2.active_count }} 个任务下载中 · 
+            {{ dashboardStore.aria2.active_count }} 个任务下载中 ·
             {{ dashboardStore.aria2.waiting_count }} 个等待中
           </div>
         </div>
-        
+
         <!-- Linode 状态 -->
         <div class="linode-card">
-          <div 
-            class="status-badge" 
-            :class="{ running: dashboardStore.linode.is_running }"
-          >
+          <div class="status-badge" :class="{ running: dashboardStore.linode.is_running }">
             {{ dashboardStore.linode.is_running ? '运行中' : '未启动' }}
           </div>
-          
+
           <template v-if="dashboardStore.linode.is_running">
             <div class="ip-address">
               {{ dashboardStore.linode.ip_address }}
@@ -49,24 +46,32 @@
               <br>
               预计费用: ${{ dashboardStore.linode.estimated_cost.toFixed(4) }}
             </div>
+
+            <!-- 代理测试 -->
+            <div class="proxy-test-box">
+              <div v-if="dashboardStore.proxyIp" class="proxy-ip-result">
+                <span>出口 IP: </span>
+                <span class="ip-val">{{ dashboardStore.proxyIp }}</span>
+              </div>
+              <van-button size="small" block round plain type="primary" :loading="dashboardStore.checkingProxy"
+                loading-text="正在探测..." @click="dashboardStore.checkProxyIp" class="proxy-check-btn">
+                {{ dashboardStore.proxyIp ? '重新检查' : '检查代理出口' }}
+              </van-button>
+            </div>
           </template>
           <template v-else>
             <div class="ip-address">-</div>
             <div class="cost">代理节点将在确认下载后自动启动</div>
           </template>
         </div>
-        
+
         <!-- 月度费用 -->
         <van-cell-group inset style="margin-bottom: 20px">
           <van-cell title="本月累计费用" :value="'$' + dashboardStore.monthlyCost.toFixed(4)" />
         </van-cell-group>
-        
+
         <!-- 紧急销毁按钮 -->
-        <button 
-          class="emergency-btn"
-          @click="handleEmergencyDestroy"
-          :disabled="dashboardStore.destroying"
-        >
+        <button class="emergency-btn" @click="handleEmergencyDestroy" :disabled="dashboardStore.destroying">
           <template v-if="dashboardStore.destroying">
             <van-loading size="20" color="#fff" />
           </template>
@@ -115,7 +120,7 @@ async function handleEmergencyDestroy() {
       confirmButtonColor: '#ee0a24',
       cancelButtonText: '取消'
     })
-    
+
     const result = await dashboardStore.emergencyDestroy()
     showToast({
       message: result.message,
@@ -155,7 +160,7 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
 }
 
-.dashboard-view > :last-child {
+.dashboard-view> :last-child {
   flex: 1;
   overflow-y: auto;
 }
@@ -251,6 +256,31 @@ onUnmounted(() => {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
   line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.proxy-test-box {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 16px;
+}
+
+.proxy-ip-result {
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.proxy-ip-result .ip-val {
+  color: #fbbf24;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
+
+.proxy-check-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
 }
 
 .emergency-btn {

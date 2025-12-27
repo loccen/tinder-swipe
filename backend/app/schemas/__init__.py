@@ -160,6 +160,13 @@ class DashboardResponse(BaseModel):
     monthly_cost: float = Field(description="本月累计费用 (USD)")
 
 
+class ProxyCheckResponse(BaseModel):
+    """代理检查响应"""
+    ip: Optional[str] = None
+    success: bool
+    error: Optional[str] = None
+
+
 # =============================================================================
 # 通用响应
 # =============================================================================

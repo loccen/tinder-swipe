@@ -181,6 +181,35 @@ class PikPakService:
             return "." + filename.rsplit(".", 1)[-1].lower()
         return ""
     
+    async def transfer_share_content(self, share_url: str) -> List[str]:
+        """
+        转存分享链接内容到自己的网盘
+        
+        Returns:
+            转存后的文件/文件夹 ID 列表
+        """
+        client = await self._ensure_client()
+        try:
+            # 获取分享信息
+            share_info = await client.get_share_info(share_url)
+            share_id = share_info.get("share_id")
+            pass_code_token = share_info.get("pass_code_token")
+            files = share_info.get("files", [])
+            
+            if not share_id or not files:
+                raise PikPakError("分享链接内容为空或已失效")
+            
+            file_ids = [f["id"] for f in files]
+            
+            # 执行转存
+            result = await client.restore(share_id, pass_code_token, file_ids)
+            
+            # 转存通常返回任务 ID，需要稍等片刻让文件出现在网盘
+            # 此处返回 file_id 列表
+            return file_ids
+        except Exception as e:
+            raise PikPakError(f"转存分享失败: {str(e)}")
+
     @staticmethod
     def parse_share_url(url: str) -> Optional[str]:
         """

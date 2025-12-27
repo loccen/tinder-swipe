@@ -78,6 +78,13 @@ export default {
          */
         emergencyDestroy() {
             return api.post('/dashboard/emergency-destroy')
+        },
+
+        /**
+         * 检查当前代理的出口 IP
+         */
+        checkProxyIp() {
+            return api.post('/dashboard/proxy-check')
         }
     },
 
