@@ -1,43 +1,32 @@
 <template>
   <div class="history-view">
     <van-nav-bar title="历史记录" :border="false" />
-    
+
     <van-tabs v-model:active="activeTab" sticky>
       <van-tab title="已确认" name="CONFIRMED" />
       <van-tab title="下载中" name="DOWNLOADING" />
       <van-tab title="已完成" name="COMPLETE" />
       <van-tab title="已忽略" name="IGNORED" />
     </van-tabs>
-    
+
     <div class="history-list">
       <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
         <van-empty v-if="!loading && tasks.length === 0" description="暂无记录" />
-        
+
         <van-cell-group v-else inset>
-          <van-cell 
-            v-for="task in tasks" 
-            :key="task.id"
-            :title="task.title || '未知资源'"
-            :label="formatTime(task.created_at)"
-          >
+          <van-cell v-for="task in tasks" :key="task.id" :title="task.title || '未知资源'"
+            :label="formatTime(task.created_at)">
             <template #right-icon>
-              <van-tag 
-                :type="getTagType(task.status)"
-                size="medium"
-              >
+              <van-tag :type="getTagType(task.status)" size="medium">
                 {{ getStatusText(task.status) }}
               </van-tag>
             </template>
           </van-cell>
         </van-cell-group>
-        
+
         <van-loading v-if="loading" style="padding: 20px; text-align: center" />
-        
-        <div 
-          v-if="hasMore && !loading" 
-          class="load-more"
-          @click="loadMore"
-        >
+
+        <div v-if="hasMore && !loading" class="load-more" @click="loadMore">
           点击加载更多
         </div>
       </van-pull-refresh>
@@ -66,12 +55,12 @@ watch(activeTab, () => {
 // 加载任务
 async function loadTasks(refresh = false) {
   if (loading.value) return
-  
+
   loading.value = true
   try {
     const offset = refresh ? 0 : tasks.value.length
     const result = await api.tasks.list(activeTab.value, 20, offset)
-    
+
     if (refresh) {
       tasks.value = result.tasks
     } else {
@@ -185,5 +174,21 @@ import { computed } from 'vue'
 
 .load-more:hover {
   color: #fff;
+}
+
+:deep(.van-cell__title) {
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.5;
+  color: #fff !important;
+}
+
+:deep(.van-cell__label) {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+:deep(.van-cell) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px);
 }
 </style>
