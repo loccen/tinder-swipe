@@ -14,9 +14,11 @@ ENV/
 
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
+# .vscode 中只忽略私有文件
+.vscode/*.log
+.vscode/.ropeproject/
 
 # Environment
 .env
