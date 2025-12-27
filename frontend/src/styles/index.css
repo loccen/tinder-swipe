@@ -1,0 +1,287 @@
+/* 全局样式 */
+
+:root {
+  --primary-color: #1989fa;
+  --success-color: #07c160;
+  --danger-color: #ee0a24;
+  --warning-color: #ff976a;
+  --background-color: #f7f8fa;
+  --card-background: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background-color);
+  color: #323233;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 防止页面滚动 */
+body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+/* 卡片容器 */
+.card-container {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 100px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow: hidden;
+}
+
+/* 资源卡片样式 */
+.resource-card {
+  position: absolute;
+  width: calc(100% - 40px);
+  max-width: 400px;
+  background: var(--card-background);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.resource-card:active {
+  cursor: grabbing;
+}
+
+.resource-card .preview-image {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  background: #eee;
+}
+
+.resource-card .card-content {
+  padding: 16px;
+}
+
+.resource-card .card-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.resource-card .card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #969799;
+  font-size: 14px;
+}
+
+/* 滑动指示器 */
+.swipe-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 60px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.swipe-indicator.left {
+  left: 30px;
+  color: var(--success-color);
+}
+
+.swipe-indicator.right {
+  right: 30px;
+  color: var(--danger-color);
+}
+
+/* 操作按钮 */
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  padding: 20px;
+}
+
+.action-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn.confirm {
+  background: var(--success-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(7, 193, 96, 0.4);
+}
+
+.action-btn.ignore {
+  background: var(--danger-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(238, 10, 36, 0.4);
+}
+
+/* 仪表盘样式 */
+.dashboard {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--card-background);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-card .value {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: #969799;
+  margin-top: 4px;
+}
+
+/* Linode 状态卡片 */
+.linode-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.linode-card .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.linode-card .status-badge.running {
+  background: rgba(7, 193, 96, 0.8);
+}
+
+.linode-card .ip-address {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.linode-card .cost {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 紧急销毁按钮 */
+.emergency-btn {
+  width: 100%;
+  height: 50px;
+  background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.emergency-btn:active {
+  opacity: 0.9;
+}
+
+/* 下载速度 */
+.speed-display {
+  background: var(--card-background);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.speed-display .speed-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.speed-display .speed-label {
+  font-size: 12px;
+  color: #969799;
+}
+
+/* 底部 Tabbar 安全距离 */
+.van-tabbar {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #969799;
+}
+
+.empty-state .emoji {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.empty-state .message {
+  font-size: 16px;
+}

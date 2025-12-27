@@ -1,0 +1,50 @@
+# ============================================================
+# Aria2 服务 - 部署在 NAS 节点
+# ============================================================
+#
+# 此文件用于在 NAS 节点上单独部署 Aria2 服务
+# 请将此文件复制到 NAS 上并执行 docker-compose up -d
+#
+# ============================================================
+
+version: "3.8"
+
+services:
+  aria2:
+    image: p3terx/aria2-pro:latest
+    container_name: aria2-pro
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK_SET=022
+      - RPC_SECRET=${ARIA2_RPC_SECRET:-your_secret_here}
+      - RPC_PORT=6800
+      - LISTEN_PORT=6888
+      - DISK_CACHE=64M
+      - IPV6_MODE=false
+      - UPDATE_TRACKERS=true
+      - CUSTOM_TRACKER_URL=
+    volumes:
+      - ./aria2-config:/config
+      - ${DOWNLOAD_PATH:-/downloads}:/downloads
+    ports:
+      - "6800:6800"
+      - "6888:6888"
+      - "6888:6888/udp"
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  # 可选: AriaNg 管理界面
+  ariang:
+    image: p3terx/ariang:latest
+    container_name: ariang
+    restart: unless-stopped
+    ports:
+      - "6880:6880"
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
