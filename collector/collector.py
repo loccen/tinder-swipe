@@ -10,7 +10,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Union
 
 from telethon import TelegramClient, events
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
@@ -37,7 +37,7 @@ class TelegramCollector:
         api_id: int,
         api_hash: str,
         phone: str,
-        channels: List[str | int],
+        channels: List[Union[str, int]],
         session_path: str = "/sessions/collector",
         previews_path: str = "/data/previews",
         backend_url: str = "http://backend:8000"

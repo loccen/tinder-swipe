@@ -3,7 +3,7 @@
 """
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         """SQLite 数据库 URL"""
         return f"sqlite+aiosqlite:///{self.database_path}"
     
-    def get_telegram_channels(self) -> List[str | int]:
+    def get_telegram_channels(self) -> List[Union[str, int]]:
         """解析 Telegram 频道列表"""
         import json
         try:
