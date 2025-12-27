@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
+        populate_by_name=True  # 同时支持别名和字段名
     )
     
     # 数据库
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     download_base_path: str = Field(default="/downloads", alias="DOWNLOAD_BASE_PATH")
     
     # 预览图路径
-    previews_path: str = Field(default="/data/previews")
+    previews_path: str = Field(default="/data/previews", alias="PREVIEWS_PATH")
     
     @property
     def database_url(self) -> str:

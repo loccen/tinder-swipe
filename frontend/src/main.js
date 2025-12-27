@@ -18,7 +18,10 @@ import {
     PullRefresh,
     SwipeCell,
     Progress,
-    Skeleton
+    Skeleton,
+    Field,
+    Tab,
+    Tabs
 } from 'vant'
 import 'vant/lib/index.css'
 import '@vant/touch-emulator'
@@ -54,5 +57,9 @@ app.use(PullRefresh)
 app.use(SwipeCell)
 app.use(Progress)
 app.use(Skeleton)
+app.use(Field)
+app.use(Tab)
+app.use(Tabs)
 
 app.mount('#app')
+

@@ -18,7 +18,8 @@
             "envFile": "${workspaceFolder}/.env",
             "env": {
                 "DATABASE_PATH": "${workspaceFolder}/data/swipe.db",
-                "PYTHONPATH": "${workspaceFolder}/backend"
+                "PYTHONPATH": "${workspaceFolder}/backend",
+                "PREVIEWS_PATH": "${workspaceFolder}/data/previews"
             },
             "console": "integratedTerminal",
             "justMyCode": true
