@@ -2,7 +2,7 @@
   <div class="swipe-view">
     <!-- 全屏背景渐变 -->
     <div class="fullscreen-bg"></div>
-    
+
     <!-- 顶部毛玻璃导航 -->
     <header class="top-bar">
       <div class="top-bar-content">
@@ -11,69 +11,48 @@
           {{ taskStore.total }} 待筛选
         </span>
       </div>
-      
+
       <!-- 顶部缩略图 (横向) -->
       <div class="thumb-strip-top" v-if="currentImages.length > 1">
-        <div 
-          v-for="(img, idx) in currentImages" 
-          :key="idx"
-          class="thumb-mini"
-          :class="{ active: idx === imageIndex }"
-          @click="imageIndex = idx"
-        >
+        <div v-for="(img, idx) in currentImages" :key="idx" class="thumb-mini" :class="{ active: idx === imageIndex }"
+          @click="imageIndex = idx">
           <img :src="`/previews/${img}`" @error="handleImageError">
         </div>
       </div>
-      
+
       <!-- 图片进度条 (替代方案，如果缩略图太多) -->
       <div class="image-progress" v-if="currentImages.length > 1">
-        <div 
-          v-for="(_, idx) in currentImages" 
-          :key="idx"
-          class="progress-bar"
-          :class="{ active: idx === imageIndex }"
-        ></div>
+        <div v-for="(_, idx) in currentImages" :key="idx" class="progress-bar" :class="{ active: idx === imageIndex }">
+        </div>
       </div>
     </header>
-    
+
     <!-- 空状态 -->
     <div v-if="taskStore.isEmpty" class="empty-state">
       <div class="empty-icon">◇</div>
       <div class="empty-text">暂无待筛选资源</div>
       <button class="refresh-btn" @click="refresh">刷新</button>
     </div>
-    
+
     <!-- 加载状态 -->
     <div v-else-if="taskStore.loading && !taskStore.currentTask" class="loading-state">
       <div class="spinner"></div>
     </div>
-    
+
     <!-- 主内容区 -->
     <main v-else class="main-content">
       <!-- 图片区域 (左右滑动切换图片) -->
-      <div 
-        class="image-container"
-        @touchstart="onImageTouchStart"
-        @touchmove="onImageTouchMove"
-        @touchend="onImageTouchEnd"
-        @mousedown="onImageMouseDown"
-      >
-        <div 
-          class="image-wrapper"
-          :style="imageWrapperStyle"
-        >
-          <img 
-            v-if="currentImages.length > 0"
-            :src="`/previews/${currentImages[imageIndex]}`"
-            class="preview-image"
-            @error="handleImageError"
-          >
+      <div class="image-container" @touchstart="onImageTouchStart" @touchmove="onImageTouchMove"
+        @touchend="onImageTouchEnd" @mousedown="onImageMouseDown">
+        <div class="image-wrapper" :style="imageWrapperStyle">
+          <img v-if="currentImages.length > 0" :src="`/previews/${currentImages[imageIndex]}`" class="preview-image"
+            @error="handleImageError">
           <div v-else class="no-image">
             <span class="no-image-icon">◇</span>
             <span>暂无预览图</span>
           </div>
         </div>
-        
+
         <!-- 手势提示 (切图) -->
         <div class="swipe-hint image-hint" v-if="currentImages.length > 1">
           <span>←</span>
@@ -82,17 +61,10 @@
         </div>
       </div>
     </main>
-    
+
     <!-- 底部信息面板 (左右滑动代表决策) -->
-    <footer 
-      class="bottom-panel" 
-      v-if="taskStore.currentTask"
-      @touchstart="onPanelTouchStart"
-      @touchmove="onPanelTouchMove"
-      @touchend="onPanelTouchEnd"
-      @mousedown="onPanelMouseDown"
-      :style="panelStyle"
-    >
+    <footer class="bottom-panel" v-if="taskStore.currentTask" @touchstart="onPanelTouchStart"
+      @touchmove="onPanelTouchMove" @touchend="onPanelTouchEnd" @mousedown="onPanelMouseDown" :style="panelStyle">
       <!-- 决策反馈角标 -->
       <div class="decision-badge accept" :class="{ visible: panelDecision === 'accept' }">
         下载
@@ -111,7 +83,7 @@
           <span>🕐 {{ formatTime(taskStore.currentTask.created_at) }}</span>
         </div>
       </div>
-      
+
       <!-- 决策手势提示 -->
       <div class="panel-hint">
         <span>← 左滑跳过</span>
@@ -298,7 +270,10 @@ onMounted(() => taskStore.loadPending(true))
 
 .fullscreen-bg {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   z-index: 0;
 }
@@ -307,7 +282,8 @@ onMounted(() => taskStore.loadPending(true))
 .top-bar {
   position: relative;
   z-index: 20;
-  padding: 50px 0 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 0 8px;
+  /* 减小顶部边距 */
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -321,7 +297,12 @@ onMounted(() => taskStore.loadPending(true))
   margin-bottom: 12px;
 }
 
-.logo { font-size: 22px; font-weight: 700; color: #fff; }
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+
 .counter {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
@@ -340,10 +321,14 @@ onMounted(() => taskStore.loadPending(true))
   scrollbar-width: none;
   margin-bottom: 10px;
 }
-.thumb-strip-top::-webkit-scrollbar { display: none; }
+
+.thumb-strip-top::-webkit-scrollbar {
+  display: none;
+}
 
 .thumb-mini {
-  width: 44px; height: 44px;
+  width: 44px;
+  height: 44px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   border: 2px solid transparent;
@@ -351,16 +336,34 @@ onMounted(() => taskStore.loadPending(true))
   overflow: hidden;
   transition: all 0.2s;
 }
-.thumb-mini.active { border-color: #fff; background: rgba(255, 255, 255, 0.3); }
-.thumb-mini img { width: 100%; height: 100%; object-fit: cover; }
 
-.image-progress { display: flex; gap: 4px; padding: 0 20px; }
+.thumb-mini.active {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.thumb-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-progress {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+}
+
 .progress-bar {
-  height: 2px; flex: 1;
+  height: 2px;
+  flex: 1;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 1px;
 }
-.progress-bar.active { background: #fff; }
+
+.progress-bar.active {
+  background: #fff;
+}
 
 /* 内容区 */
 .main-content {
@@ -368,33 +371,37 @@ onMounted(() => taskStore.loadPending(true))
   position: relative;
   z-index: 10;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 40px;
+  flex-direction: column;
+  padding: 0;
 }
 
 .image-container {
-  width: 90%;
-  max-width: 340px;
-  aspect-ratio: 1/1;
+  flex: 1;
+  width: 100%;
   position: relative;
   touch-action: pan-y;
   cursor: grab;
 }
-.image-wrapper { width: 100%; height: 100%; }
+
+.image-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
 .preview-image {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  border-radius: 20px;
-  background: rgba(0,0,0,0.1);
+  background: transparent;
 }
 
 .swipe-hint {
   position: absolute;
   bottom: -40px;
-  left: 0; right: 0;
+  left: 0;
+  right: 0;
   text-align: center;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -405,8 +412,10 @@ onMounted(() => taskStore.loadPending(true))
 /* 底部面板 */
 .bottom-panel {
   position: absolute;
-  bottom: calc(50px + env(safe-area-inset-bottom)); /* 放在导航栏上方 */
-  left: 0; right: 0;
+  bottom: calc(50px + env(safe-area-inset-bottom));
+  /* 放在导航栏上方 */
+  left: 0;
+  right: 0;
   z-index: 30;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(40px);
@@ -417,16 +426,38 @@ onMounted(() => taskStore.loadPending(true))
   touch-action: pan-y;
 }
 
-.bottom-panel:active { cursor: grabbing; }
-
-.info-section { position: relative; }
-.title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-.desc {
-  font-size: 13px; color: rgba(255, 255, 255, 0.6);
-  line-height: 1.4; margin-bottom: 12px;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+.bottom-panel:active {
+  cursor: grabbing;
 }
-.meta { display: flex; gap: 16px; font-size: 12px; color: rgba(255, 255, 255, 0.4); }
+
+.info-section {
+  position: relative;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
 
 .panel-hint {
   margin-top: 16px;
@@ -447,20 +478,47 @@ onMounted(() => taskStore.loadPending(true))
   opacity: 0;
   transition: opacity 0.2s;
 }
-.decision-badge.accept { right: 20px; background: #22c55e; color: #fff; }
-.decision-badge.reject { left: 20px; background: #ef4444; color: #fff; }
-.decision-badge.visible { opacity: 1; }
+
+.decision-badge.accept {
+  right: 20px;
+  background: #22c55e;
+  color: #fff;
+}
+
+.decision-badge.reject {
+  left: 20px;
+  background: #ef4444;
+  color: #fff;
+}
+
+.decision-badge.visible {
+  opacity: 1;
+}
 
 /* 状态 */
-.loading-state, .empty-state {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 16px; z-index: 10;
+.loading-state,
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10;
 }
+
 .spinner {
-  width: 32px; height: 32px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: #fff; border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>
