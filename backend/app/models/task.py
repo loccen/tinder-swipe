@@ -3,7 +3,8 @@
 """
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
+import json
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,8 +36,10 @@ class Task(Base, TimestampMixin):
     
     # 资源元数据
     title: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 资源描述文本
     file_size: Mapped[int] = mapped_column(Integer, default=0)
-    preview_image: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    preview_image: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)  # 兼容旧数据
+    preview_images: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON 数组存储多张图片
     
     # 状态管理
     status: Mapped[str] = mapped_column(
@@ -70,7 +73,28 @@ class Task(Base, TimestampMixin):
         Index("idx_tasks_batch_id", "batch_id"),
         Index("idx_tasks_telegram", "telegram_chat_id", "telegram_msg_id", unique=True),
     )
+    
+    def get_preview_images_list(self) -> List[str]:
+        """获取预览图列表"""
+        images = []
+        # 优先使用新字段
+        if self.preview_images:
+            try:
+                images = json.loads(self.preview_images)
+            except json.JSONDecodeError:
+                pass
+        # 兼容旧数据
+        if not images and self.preview_image:
+            images = [self.preview_image]
+        return images
+    
+    def set_preview_images_list(self, images: List[str]):
+        """设置预览图列表"""
+        self.preview_images = json.dumps(images) if images else None
+        # 同时设置第一张图到旧字段，保持兼容
+        self.preview_image = images[0] if images else None
 
 
 # 延迟导入，避免循环引用
 from app.models.batch import Batch
+

@@ -46,7 +46,7 @@ async def get_pending_tasks(
     tasks = result.scalars().all()
     
     return PendingTasksResponse(
-        tasks=[TaskResponse.model_validate(t) for t in tasks],
+        tasks=[TaskResponse.from_task(t) for t in tasks],
         total=total
     )
 
@@ -61,7 +61,7 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     
-    return TaskResponse.model_validate(task)
+    return TaskResponse.from_task(task)
 
 
 @router.post("/{task_id}/action", response_model=TaskResponse)
@@ -95,7 +95,7 @@ async def task_action(
     await db.commit()
     await db.refresh(task)
     
-    return TaskResponse.model_validate(task)
+    return TaskResponse.from_task(task)
 
 
 @router.get("", response_model=PendingTasksResponse)
@@ -126,6 +126,6 @@ async def list_tasks(
     tasks = result.scalars().all()
     
     return PendingTasksResponse(
-        tasks=[TaskResponse.model_validate(t) for t in tasks],
+        tasks=[TaskResponse.from_task(t) for t in tasks],
         total=total
     )

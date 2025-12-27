@@ -15,8 +15,10 @@ class TaskBase(BaseModel):
     """任务基础模型"""
     source_url: str
     title: Optional[str] = None
+    description: Optional[str] = None  # 资源描述文本
     file_size: int = 0
-    preview_image: Optional[str] = None
+    preview_image: Optional[str] = None  # 兼容旧数据
+    preview_images: List[str] = []  # 多张预览图
 
 
 class TaskCreate(TaskBase):
@@ -40,6 +42,28 @@ class TaskResponse(TaskBase):
 
     class Config:
         from_attributes = True
+    
+    @classmethod
+    def from_task(cls, task) -> "TaskResponse":
+        """从 Task 模型创建响应，处理 preview_images"""
+        return cls(
+            id=task.id,
+            telegram_msg_id=task.telegram_msg_id,
+            telegram_chat_id=task.telegram_chat_id,
+            source_url=task.source_url,
+            title=task.title,
+            description=task.description,
+            file_size=task.file_size,
+            preview_image=task.preview_image,
+            preview_images=task.get_preview_images_list(),
+            status=task.status,
+            batch_id=task.batch_id,
+            aria2_gid=task.aria2_gid,
+            error_message=task.error_message,
+            created_at=task.created_at,
+            confirmed_at=task.confirmed_at,
+            completed_at=task.completed_at
+        )
 
 
 class TaskAction(BaseModel):

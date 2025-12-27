@@ -38,10 +38,17 @@ async def create_task(
         telegram_chat_id=task_data.telegram_chat_id,
         source_url=task_data.source_url,
         title=task_data.title,
+        description=task_data.description,
         file_size=task_data.file_size,
         preview_image=task_data.preview_image,
         status=TaskStatus.PENDING.value
     )
+    
+    # 设置多张预览图
+    if task_data.preview_images:
+        task.set_preview_images_list(task_data.preview_images)
+    elif task_data.preview_image:
+        task.set_preview_images_list([task_data.preview_image])
     
     db.add(task)
     
@@ -52,4 +59,5 @@ async def create_task(
         await db.rollback()
         raise HTTPException(status_code=409, detail="任务已存在")
     
-    return TaskResponse.model_validate(task)
+    return TaskResponse.from_task(task)
+
