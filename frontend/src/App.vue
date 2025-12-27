@@ -10,6 +10,7 @@
       <van-tabbar-item to="/" icon="like-o">筛选</van-tabbar-item>
       <van-tabbar-item to="/dashboard" icon="bar-chart-o">仪表盘</van-tabbar-item>
       <van-tabbar-item to="/history" icon="clock-o">历史</van-tabbar-item>
+      <van-tabbar-item to="/settings" icon="setting-o">设置</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>

@@ -79,5 +79,36 @@ export default {
         emergencyDestroy() {
             return api.post('/dashboard/emergency-destroy')
         }
+    },
+
+    // 设置相关
+    settings: {
+        /**
+         * 获取监听频道列表
+         */
+        getChannels() {
+            return api.get('/settings/channels')
+        },
+
+        /**
+         * 更新频道列表
+         */
+        updateChannels(channels) {
+            return api.put('/settings/channels', { channels })
+        },
+
+        /**
+         * 添加频道
+         */
+        addChannel(channel) {
+            return api.post('/settings/channels', channel)
+        },
+
+        /**
+         * 删除频道
+         */
+        deleteChannel(channelId) {
+            return api.delete(`/settings/channels/${encodeURIComponent(channelId)}`)
+        }
     }
 }

@@ -18,6 +18,12 @@ const routes = [
         name: 'history',
         component: () => import('../views/HistoryView.vue'),
         meta: { title: '历史' }
+    },
+    {
+        path: '/settings',
+        name: 'settings',
+        component: () => import('../views/SettingsView.vue'),
+        meta: { title: '设置' }
     }
 ]
 
