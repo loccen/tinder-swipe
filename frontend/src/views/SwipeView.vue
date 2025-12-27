@@ -1,110 +1,115 @@
 <template>
   <div class="swipe-view">
-    <!-- 顶部栏 -->
-    <header class="header">
-      <h1 class="title">Swipe</h1>
-      <div class="counter" v-if="taskStore.total > 0">
-        {{ taskStore.total }}
+    <!-- 全屏背景渐变 -->
+    <div class="fullscreen-bg"></div>
+    
+    <!-- 顶部毛玻璃导航 -->
+    <header class="top-bar">
+      <div class="top-bar-content">
+        <span class="logo">Swipe</span>
+        <span class="counter" v-if="taskStore.total > 0">
+          {{ taskStore.total }} 待筛选
+        </span>
+      </div>
+      
+      <!-- 图片进度条 -->
+      <div class="image-progress" v-if="currentImages.length > 1">
+        <div 
+          v-for="(_, idx) in currentImages" 
+          :key="idx"
+          class="progress-bar"
+          :class="{ active: idx === imageIndex }"
+        ></div>
       </div>
     </header>
-
+    
     <!-- 空状态 -->
     <div v-if="taskStore.isEmpty" class="empty-state">
-      <div class="empty-icon">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-      </div>
-      <p class="empty-text">暂无待筛选资源</p>
-      <button class="refresh-btn" @click="refresh">
-        刷新
-      </button>
+      <div class="empty-icon">◇</div>
+      <div class="empty-text">暂无待筛选资源</div>
+      <button class="refresh-btn" @click="refresh">刷新</button>
     </div>
-
+    
     <!-- 加载状态 -->
     <div v-else-if="taskStore.loading && !taskStore.currentTask" class="loading-state">
       <div class="spinner"></div>
     </div>
-
-    <!-- 主卡片 -->
-    <div v-else class="card-area">
-      <div class="card" :style="cardStyle" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd"
-        @mousedown="onMouseDown">
+    
+    <!-- 主内容区 -->
+    <main v-else class="main-content">
+      <!-- 左侧手势提示 -->
+      <div class="gesture-hints">
+        <div class="hint-item" :class="{ active: decision === 'reject' }">
+          <span class="hint-arrow">←</span>
+          <span>跳过</span>
+        </div>
+        <div class="hint-item right" :class="{ active: decision === 'accept' }">
+          <span>下载</span>
+          <span class="hint-arrow">→</span>
+        </div>
+      </div>
+      
+      <!-- 右侧缩略图 -->
+      <div class="thumb-strip" v-if="currentImages.length > 1">
+        <div 
+          v-for="(img, idx) in currentImages.slice(0, 6)" 
+          :key="idx"
+          class="thumb"
+          :class="{ active: idx === imageIndex }"
+          @click="imageIndex = idx"
+        >
+          <img :src="`/previews/${img}`" @error="e => e.target.style.opacity = 0">
+        </div>
+        <div class="thumb more" v-if="currentImages.length > 6">
+          +{{ currentImages.length - 6 }}
+        </div>
+      </div>
+      
+      <!-- 图片区域 -->
+      <div 
+        class="image-area"
+        :style="cardStyle"
+        @touchstart="onTouchStart"
+        @touchmove="onTouchMove"
+        @touchend="onTouchEnd"
+        @mousedown="onMouseDown"
+      >
         <!-- 决策反馈 -->
-        <div class="feedback accept" :class="{ visible: decision === 'accept' }">
+        <div class="decision-badge accept" :class="{ visible: decision === 'accept' }">
           下载
         </div>
-        <div class="feedback reject" :class="{ visible: decision === 'reject' }">
+        <div class="decision-badge reject" :class="{ visible: decision === 'reject' }">
           跳过
         </div>
-
-        <!-- 图片区 -->
-        <div class="image-area">
-          <template v-if="currentImages.length > 0">
-            <!-- 图片 -->
-            <img :src="`/previews/${currentImages[imageIndex]}`" class="image" :style="imageStyle"
-              @error="e => e.target.src = ''">
-
-            <!-- 图片计数 -->
-            <div class="image-count" v-if="currentImages.length > 1">
-              {{ imageIndex + 1 }} / {{ currentImages.length }}
-            </div>
-
-            <!-- 上下切换按钮 -->
-            <button class="nav-btn prev" v-if="imageIndex > 0" @click.stop="imageIndex--">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </button>
-            <button class="nav-btn next" v-if="imageIndex < currentImages.length - 1" @click.stop="imageIndex++">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          </template>
-
-          <div v-else class="no-image">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- 缩略图 -->
-        <div class="thumbnails" v-if="currentImages.length > 1">
-          <div v-for="(img, idx) in currentImages.slice(0, 10)" :key="idx" class="thumb"
-            :class="{ active: idx === imageIndex }" @click.stop="imageIndex = idx">
-            <img :src="`/previews/${img}`" @error="e => e.target.style.opacity = 0">
-          </div>
-          <div class="thumb more" v-if="currentImages.length > 10">
-            +{{ currentImages.length - 10 }}
-          </div>
-        </div>
-
-        <!-- 信息区 -->
-        <div class="info">
-          <h2 class="info-title">{{ taskStore.currentTask?.title || '未知' }}</h2>
-          <p class="info-desc" v-if="taskStore.currentTask?.description">
-            {{ taskStore.currentTask.description }}
-          </p>
-          <div class="info-meta">
-            <span>{{ formatSize(taskStore.currentTask?.file_size) }}</span>
-            <span>{{ formatTime(taskStore.currentTask?.created_at) }}</span>
-          </div>
+        
+        <!-- 图片显示 -->
+        <img 
+          v-if="currentImages.length > 0"
+          :src="`/previews/${currentImages[imageIndex]}`"
+          class="preview-image"
+          :style="imageStyle"
+          @error="handleImageError"
+        >
+        <div v-else class="no-image">
+          <span class="no-image-icon">◇</span>
+          <span>暂无预览图</span>
         </div>
       </div>
-
-      <!-- 操作提示 -->
-      <div class="hints">
-        <span>← 跳过</span>
-        <span>↑↓ 切图</span>
-        <span>下载 →</span>
+    </main>
+    
+    <!-- 底部信息面板 -->
+    <footer class="bottom-panel" v-if="taskStore.currentTask">
+      <div class="info-section">
+        <h1 class="title">{{ taskStore.currentTask.title || '未知资源' }}</h1>
+        <p class="desc" v-if="taskStore.currentTask.description">
+          {{ taskStore.currentTask.description }}
+        </p>
+        <div class="meta">
+          <span>📦 {{ formatSize(taskStore.currentTask.file_size) }}</span>
+          <span>🕐 {{ formatTime(taskStore.currentTask.created_at) }}</span>
+        </div>
       </div>
-    </div>
+    </footer>
   </div>
 </template>
 
@@ -155,7 +160,7 @@ const cardStyle = computed(() => ({
   transition: isDragging.value ? 'none' : 'transform 0.3s ease'
 }))
 
-// 图片样式
+// 图片样式 (垂直滑动)
 const imageStyle = computed(() => {
   if (direction.value !== 'vertical') return {}
   return {
@@ -176,11 +181,11 @@ function onTouchMove(e) {
   if (!isDragging.value) return
   const dx = e.touches[0].clientX - startX.value
   const dy = e.touches[0].clientY - startY.value
-
+  
   if (!direction.value && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
     direction.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
   }
-
+  
   if (direction.value === 'horizontal') offsetX.value = dx
   if (direction.value === 'vertical') offsetY.value = dy
 }
@@ -195,37 +200,39 @@ function onMouseDown(e) {
   startY.value = e.clientY
   isDragging.value = true
   direction.value = null
-
+  
   const onMove = (e) => {
     const dx = e.clientX - startX.value
     const dy = e.clientY - startY.value
-
+    
     if (!direction.value && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
       direction.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
     }
-
+    
     if (direction.value === 'horizontal') offsetX.value = dx
     if (direction.value === 'vertical') offsetY.value = dy
   }
-
+  
   const onUp = () => {
     finishDrag()
     document.removeEventListener('mousemove', onMove)
     document.removeEventListener('mouseup', onUp)
   }
-
+  
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
 
 async function finishDrag() {
   isDragging.value = false
-
+  
+  // 水平滑动 - 决策
   if (direction.value === 'horizontal') {
     if (offsetX.value > 80) await handleConfirm()
     else if (offsetX.value < -80) await handleIgnore()
   }
-
+  
+  // 垂直滑动 - 切换图片
   if (direction.value === 'vertical') {
     if (offsetY.value < -40 && imageIndex.value < currentImages.value.length - 1) {
       imageIndex.value++
@@ -233,7 +240,7 @@ async function finishDrag() {
       imageIndex.value--
     }
   }
-
+  
   offsetX.value = 0
   offsetY.value = 0
   direction.value = null
@@ -243,10 +250,10 @@ async function handleConfirm() {
   if (!taskStore.currentTask) return
   try {
     await taskStore.confirm(taskStore.currentTask.id)
-    showToast('已添加下载')
+    showToast({ message: '已添加下载', icon: 'success' })
     if (taskStore.pending.length < 5) taskStore.loadPending()
   } catch (e) {
-    showToast('操作失败')
+    showToast({ message: '操作失败', icon: 'fail' })
   }
 }
 
@@ -254,10 +261,10 @@ async function handleIgnore() {
   if (!taskStore.currentTask) return
   try {
     await taskStore.ignore(taskStore.currentTask.id)
-    showToast('已跳过')
+    showToast({ message: '已跳过', icon: 'clear' })
     if (taskStore.pending.length < 5) taskStore.loadPending()
   } catch (e) {
-    showToast('操作失败')
+    showToast({ message: '操作失败', icon: 'fail' })
   }
 }
 
@@ -265,15 +272,19 @@ function refresh() {
   taskStore.loadPending(true)
 }
 
+function handleImageError(e) {
+  e.target.style.opacity = 0
+}
+
 function formatSize(bytes) {
-  if (!bytes) return '--'
+  if (!bytes) return '未知'
   if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + ' GB'
   if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + ' MB'
   return (bytes / 1e3).toFixed(1) + ' KB'
 }
 
 function formatTime(str) {
-  if (!str) return '--'
+  if (!str) return '未知'
   const d = Date.now() - new Date(str).getTime()
   if (d < 6e4) return '刚刚'
   if (d < 36e5) return Math.floor(d / 6e4) + ' 分钟前'
@@ -289,230 +300,198 @@ onMounted(() => taskStore.loadPending(true))
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
+  position: relative;
+  overflow: hidden;
 }
 
-/* 顶部栏 */
-.header {
+/* 全屏渐变背景 */
+.fullscreen-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  z-index: 0;
+}
+
+/* 顶部导航 */
+.top-bar {
+  position: relative;
+  z-index: 20;
+  padding: 50px 20px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.top-bar-content {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
 }
 
-.title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
 }
 
 .counter {
-  background: var(--accent);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+/* 图片进度条 */
+.image-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.progress-bar {
+  height: 3px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.progress-bar.active {
+  background: #fff;
 }
 
 /* 空状态 */
-.empty-state,
-.loading-state {
+.empty-state, .loading-state {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
+  z-index: 10;
 }
 
 .empty-icon {
-  color: var(--text-muted);
+  font-size: 64px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .empty-text {
-  color: var(--text-secondary);
-  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
 }
 
 .refresh-btn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  padding: 10px 24px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 10px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover {
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-/* 卡片区域 */
-.card-area {
+/* 主内容区 */
+.main-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  padding-bottom: calc(60px + env(safe-area-inset-bottom) + 16px);
-  overflow: hidden;
-}
-
-.card {
-  flex: 1;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
   position: relative;
-  touch-action: none;
-  cursor: grab;
-}
-
-.card:active {
-  cursor: grabbing;
-}
-
-/* 决策反馈 */
-.feedback {
-  position: absolute;
-  top: 20px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.15s;
   z-index: 10;
-}
-
-.feedback.accept {
-  right: 20px;
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--success);
-  border: 1px solid var(--success);
-}
-
-.feedback.reject {
-  left: 20px;
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
-  border: 1px solid var(--danger);
-}
-
-.feedback.visible {
-  opacity: 1;
-}
-
-/* 图片区 */
-.image-area {
-  flex: 1;
-  position: relative;
-  background: #0a0a0a;
-  min-height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
 }
 
-.image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.no-image {
-  color: var(--text-muted);
-}
-
-.image-count {
+/* 手势提示 */
+.gesture-hints {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 4px;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 5;
 }
 
-/* 上下按钮 */
-.nav-btn {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  color: #fff;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.hint-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.nav-btn:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.nav-btn.prev {
-  top: 12px;
-}
-
-.nav-btn.next {
-  bottom: 12px;
-}
-
-/* 缩略图 */
-.thumbnails {
-  display: flex;
   gap: 6px;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  overflow-x: auto;
-  scrollbar-width: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  transition: all 0.2s;
 }
 
-.thumbnails::-webkit-scrollbar {
-  display: none;
+.hint-item.right {
+  flex-direction: row;
+}
+
+.hint-item.active {
+  color: rgba(255, 255, 255, 0.9);
+  transform: scale(1.1);
+}
+
+.hint-arrow {
+  font-size: 18px;
+}
+
+/* 右侧缩略图 */
+.thumb-strip {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 15;
 }
 
 .thumb {
   width: 44px;
   height: 44px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  overflow: hidden;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
   border: 2px solid transparent;
+  overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
 }
 
 .thumb.active {
-  border-color: var(--accent);
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .thumb img {
@@ -522,26 +501,102 @@ onMounted(() => taskStore.loadPending(true))
 }
 
 .thumb.more {
-  background: var(--bg-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
+  color: #fff;
   font-size: 12px;
+  font-weight: 500;
 }
 
-/* 信息区 */
-.info {
-  padding: 16px;
-  border-top: 1px solid var(--border);
+/* 图片区域 */
+.image-area {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 3/4;
+  position: relative;
+  touch-action: none;
+  cursor: grab;
 }
 
-.info-title {
-  font-size: 16px;
+.image-area:active {
+  cursor: grabbing;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.no-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+}
+
+.no-image-icon {
+  font-size: 48px;
+}
+
+/* 决策反馈 */
+.decision-badge {
+  position: absolute;
+  top: 20px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.decision-badge.accept {
+  right: 20px;
+  background: rgba(34, 197, 94, 0.9);
+  color: #fff;
+}
+
+.decision-badge.reject {
+  left: 20px;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+.decision-badge.visible {
+  opacity: 1;
+}
+
+/* 底部信息面板 */
+.bottom-panel {
+  position: relative;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: calc(50px + env(safe-area-inset-bottom));
+}
+
+.info-section {
+  padding: 20px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
   margin-bottom: 6px;
+  line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -549,10 +604,10 @@ onMounted(() => taskStore.loadPending(true))
   overflow: hidden;
 }
 
-.info-desc {
+.desc {
   font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
   margin-bottom: 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -561,19 +616,10 @@ onMounted(() => taskStore.loadPending(true))
   overflow: hidden;
 }
 
-.info-meta {
+.meta {
   display: flex;
   gap: 16px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* 操作提示 */
-.hints {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 20px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>

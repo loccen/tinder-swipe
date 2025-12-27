@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>风格5 - Apple + 沉浸结合版（完整）</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 全屏背景图 */
+        .fullscreen-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+
+        /* 顶部毛玻璃导航 */
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 50px 20px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 10;
+        }
+
+        .top-bar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .counter {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        /* 图片进度条 */
+        .image-progress {
+            display: flex;
+            gap: 4px;
+            margin-top: 16px;
+        }
+
+        .progress-bar {
+            height: 3px;
+            flex: 1;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+
+        .progress-bar.active {
+            background: #fff;
+        }
+
+        /* 右侧缩略图条 */
+        .thumb-strip {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-60%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .thumb {
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .thumb.active {
+            border-color: #fff;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 左侧手势提示 */
+        .gesture-hint {
+            position: absolute;
+            left: 16px;
+            top: 45%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            z-index: 10;
+        }
+
+        .hint-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+        }
+
+        .hint-arrow {
+            font-size: 18px;
+        }
+
+        /* 底部整体面板 */
+        .bottom-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        /* 信息区域 */
+        .info-panel {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px 20px 16px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .desc {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.4;
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 操作按钮 */
+        .actions {
+            display: flex;
+            gap: 12px;
+            padding: 12px 20px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(40px);
+        }
+
+        .action-btn {
+            flex: 1;
+            height: 46px;
+            border-radius: 12px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .action-btn.skip {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .action-btn.download {
+            background: rgba(255, 255, 255, 0.95);
+            color: #1a1a2e;
+        }
+
+        /* 底部导航栏 */
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 10px;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 4px 16px;
+        }
+
+        .nav-item.active {
+            color: #fff;
+        }
+
+        .nav-icon {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        /* 安全区 */
+        .safe-area {
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(40px);
+        }
+
+        .style-name {
+            text-align: center;
+            margin-top: 30px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .style-desc {
+            text-align: center;
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            max-width: 340px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <div class="phone-frame">
+            <!-- 全屏背景 -->
+            <div class="fullscreen-bg"></div>
+
+            <!-- 顶部毛玻璃导航 -->
+            <div class="top-bar">
+                <div class="top-bar-content">
+                    <span class="logo">Swipe</span>
+                    <span class="counter">12 待筛选</span>
+                </div>
+                <div class="image-progress">
+                    <div class="progress-bar active"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                    <div class="progress-bar"></div>
+                </div>
+            </div>
+
+            <!-- 左侧手势提示 -->
+            <div class="gesture-hint">
+                <div class="hint-item">
+                    <span class="hint-arrow">←</span>
+                    <span>跳过</span>
+                </div>
+                <div class="hint-item">
+                    <span>下载</span>
+                    <span class="hint-arrow">→</span>
+                </div>
+            </div>
+
+            <!-- 右侧缩略图 -->
+            <div class="thumb-strip">
+                <div class="thumb active"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+            </div>
+
+            <!-- 底部整体区域 -->
+            <div class="bottom-container">
+                <!-- 信息面板 -->
+                <div class="info-panel">
+                    <h1 class="title">AQUCO-134 高清完整版</h1>
+                    <p class="desc">复制这段内容后打开 PikPak-App，畅享极速秒播</p>
+                    <div class="meta">
+                        <span>📦 2.5 GB</span>
+                        <span>🕐 3 小时前</span>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="actions">
+                    <button class="action-btn skip">跳过</button>
+                    <button class="action-btn download">下载</button>
+                </div>
+
+                <!-- 底部导航栏 -->
+                <div class="nav-bar">
+                    <div class="nav-item active">
+                        <div class="nav-icon">♡</div>
+                        <span>筛选</span>
+                    </div>
+                    <div class="nav-item">
+                        <div class="nav-icon">▣</div>
+                        <span>仪表盘</span>
+                    </div>
+                    <div class="nav-item">
+                        <div class="nav-icon">◷</div>
+                        <span>历史</span>
+                    </div>
+                    <div class="nav-item">
+                        <div class="nav-icon">⚙</div>
+                        <span>设置</span>
+                    </div>
+                </div>
+
+                <!-- 安全区 -->
+                <div class="safe-area"></div>
+            </div>
+        </div>
+
+        <p class="style-name">风格5：完整版（含底部导航）</p>
+        <p class="style-desc">全屏沉浸 + 毛玻璃层叠设计<br>底部信息栏 → 操作按钮 → 导航栏 无缝衔接</p>
+    </div>
+</body>
+
+</html>

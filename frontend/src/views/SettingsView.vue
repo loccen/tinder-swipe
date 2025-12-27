@@ -130,31 +130,43 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--background-color);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
 }
 
 .settings-content {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 20px;
+  padding: 16px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 
 .help-text {
   font-size: 13px;
-  color: #646566;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.8;
 }
 
+.help-text p {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.help-text strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .help-text code {
-  background: #f5f5f5;
-  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
 }
 
 .help-text ul,
 .help-text ol {
   padding-left: 20px;
   margin: 8px 0;
+  color: rgba(255, 255, 255, 0.6);
 }
 </style>

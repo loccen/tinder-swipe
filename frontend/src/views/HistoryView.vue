@@ -144,19 +144,46 @@ import { computed } from 'vue'
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--background-color);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+}
+
+:deep(.van-tabs__nav) {
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(20px);
+}
+
+:deep(.van-tab) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.van-tab--active) {
+  color: #fff !important;
+}
+
+:deep(.van-tabs__line) {
+  background: #fff !important;
 }
 
 .history-list {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 20px;
+  padding: 16px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
+}
+
+:deep(.van-empty__description) {
+  color: rgba(255, 255, 255, 0.6) !important;
 }
 
 .load-more {
   text-align: center;
   padding: 20px;
-  color: var(--primary-color);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
+  font-size: 14px;
+}
+
+.load-more:hover {
+  color: #fff;
 }
 </style>
