@@ -16,11 +16,7 @@
         <van-cell-group v-else inset>
           <van-cell v-for="task in tasks" :key="task.id" :title="task.title || '未知资源'"
             :label="formatTime(task.created_at)">
-            <template #right-icon>
-              <van-tag :type="getTagType(task.status)" size="medium">
-                {{ getStatusText(task.status) }}
-              </van-tag>
-            </template>
+
           </van-cell>
         </van-cell-group>
 
