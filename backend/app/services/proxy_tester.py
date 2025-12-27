@@ -18,10 +18,21 @@ class ProxyTester:
     
     def __init__(self):
         self.settings = get_settings()
-        self.hysteria_path = "/usr/local/bin/hysteria"
-        # 开发环境下兼容 macOS
-        if not os.path.exists(self.hysteria_path):
-            self.hysteria_path = "hysteria" # 尝试从 PATH 获取
+        # 探测路径优先级：/usr/local/bin -> backend/bin -> bin -> system PATH
+        possible_paths = [
+            "/usr/local/bin/hysteria",
+            os.path.join(os.getcwd(), "bin", "hysteria"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "bin", "hysteria"),
+            "hysteria"
+        ]
+        
+        self.hysteria_path = "hysteria"
+        for path in possible_paths:
+            if "/" in path and os.path.exists(path):
+                self.hysteria_path = path
+                break
+        
+        logger.info(f"ProxyTester 初始化，使用 Hysteria 路径: {self.hysteria_path}")
             
     async def check_proxy_ip(self, ip: str, port: int, password: str) -> Optional[str]:
         """
