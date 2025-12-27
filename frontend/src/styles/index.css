@@ -7,22 +7,22 @@
   --gradient-start: #667eea;
   --gradient-mid: #764ba2;
   --gradient-end: #f093fb;
-  
+
   /* 毛玻璃效果 */
   --glass-bg: rgba(0, 0, 0, 0.3);
   --glass-bg-dark: rgba(0, 0, 0, 0.5);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: 40px;
-  
+
   /* 文字颜色 */
   --text-primary: #fff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.4);
-  
+
   /* 强调色 */
   --accent: rgba(255, 255, 255, 0.95);
   --accent-subtle: rgba(255, 255, 255, 0.2);
-  
+
   /* 状态色 */
   --success: #22c55e;
   --danger: #ef4444;
@@ -34,7 +34,9 @@
   box-sizing: border-box;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   height: 100%;
   width: 100%;
   overflow: hidden;
@@ -73,6 +75,8 @@ body {
   -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
   border-top: 1px solid var(--glass-border) !important;
   padding-bottom: env(safe-area-inset-bottom);
+  z-index: 1000 !important;
+  /* 确保在最上层 */
 }
 
 .van-tabbar-item {
