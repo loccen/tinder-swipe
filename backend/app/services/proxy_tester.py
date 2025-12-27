@@ -77,7 +77,8 @@ class ProxyTester:
                 # 3. 使用 httpx 通过 SOCKS5 代理请求 IP 查询服务
                 # 注意：需要安装 httpx[socks]
                 async with httpx.AsyncClient(
-                    proxies=f"socks5://127.0.0.1:{socks5_port}",
+                    proxy=f"socks5://127.0.0.1:{socks5_port}",
+                    verify=False,
                     timeout=10.0
                 ) as client:
                     response = await client.get("https://ifconfig.me/ip")
