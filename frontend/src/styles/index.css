@@ -1,34 +1,52 @@
-/* 赛博朋克主题全局样式 */
+/* 极简科技主题 - 参考 Linear/Raycast 设计语言 */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* 赛博朋克配色 */
-  --cyber-bg: #0a0a0f;
-  --cyber-bg-secondary: #1a1a2e;
-  --cyber-cyan: #00ffff;
-  --cyber-magenta: #ff00ff;
-  --cyber-green: #00ff64;
-  --cyber-red: #ff0064;
-  --cyber-yellow: #ffff00;
-  --cyber-blue: #0080ff;
-  
-  /* 文字颜色 */
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.3);
-  
-  /* 边框和阴影 */
-  --border-glow: rgba(0, 255, 255, 0.2);
-  --shadow-glow: 0 0 20px rgba(0, 255, 255, 0.2);
-  
+  /* 灰度色阶 */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #a1a1aa;
+  --gray-500: #71717a;
+  --gray-600: #52525b;
+  --gray-700: #3f3f46;
+  --gray-800: #27272a;
+  --gray-900: #18181b;
+  --gray-950: #09090b;
+
+  /* 强调色 - 冷色调蓝 */
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --accent-dark: #2563eb;
+
+  /* 语义色 */
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+
+  /* 背景 */
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #141414;
+  --bg-elevated: #1a1a1a;
+
+  /* 文字 */
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+
+  /* 边框 */
+  --border: #27272a;
+  --border-light: #3f3f46;
+
   /* 兼容旧变量 */
-  --primary-color: var(--cyber-cyan);
-  --success-color: var(--cyber-green);
-  --danger-color: var(--cyber-red);
-  --warning-color: var(--cyber-yellow);
-  --background-color: var(--cyber-bg);
-  --card-background: var(--cyber-bg-secondary);
+  --primary-color: var(--accent);
+  --success-color: var(--success);
+  --danger-color: var(--danger);
+  --background-color: var(--bg-primary);
+  --card-background: var(--bg-elevated);
 }
 
 * {
@@ -37,15 +55,17 @@
   box-sizing: border-box;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   height: 100%;
   width: 100%;
   overflow: hidden;
 }
 
 body {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-  background: linear-gradient(135deg, var(--cyber-bg) 0%, var(--cyber-bg-secondary) 50%, var(--cyber-bg) 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -59,21 +79,19 @@ body {
 
 /* Vant 组件主题覆盖 */
 .van-nav-bar {
-  background: transparent !important;
-  border-bottom: 1px solid var(--border-glow) !important;
+  background: var(--bg-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
 }
 
 .van-nav-bar__title {
   color: var(--text-primary) !important;
   font-weight: 600 !important;
-  letter-spacing: 2px !important;
 }
 
 .van-tabbar {
-  background: rgba(10, 10, 15, 0.95) !important;
-  border-top: 1px solid var(--border-glow) !important;
+  background: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border) !important;
   padding-bottom: env(safe-area-inset-bottom);
-  backdrop-filter: blur(20px);
 }
 
 .van-tabbar-item {
@@ -81,35 +99,31 @@ body {
 }
 
 .van-tabbar-item--active {
-  color: var(--cyber-cyan) !important;
-}
-
-.van-tabbar-item--active .van-icon {
-  text-shadow: 0 0 10px var(--cyber-cyan);
+  color: var(--text-primary) !important;
 }
 
 .van-cell-group {
-  background: rgba(26, 26, 46, 0.8) !important;
-  border: 1px solid var(--border-glow) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   overflow: hidden;
 }
 
 .van-cell-group__title {
-  color: var(--cyber-cyan) !important;
-  font-size: 11px !important;
-  letter-spacing: 2px !important;
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .van-cell {
   background: transparent !important;
   color: var(--text-primary) !important;
-  border-bottom: 1px solid rgba(0, 255, 255, 0.05) !important;
 }
 
 .van-cell::after {
-  border-color: rgba(0, 255, 255, 0.1) !important;
+  border-color: var(--border) !important;
 }
 
 .van-field__control {
@@ -121,28 +135,29 @@ body {
 }
 
 .van-button--primary {
-  background: linear-gradient(135deg, var(--cyber-cyan) 0%, var(--cyber-blue) 100%) !important;
+  background: var(--accent) !important;
   border: none !important;
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3) !important;
+}
+
+.van-button--primary:active {
+  background: var(--accent-dark) !important;
 }
 
 .van-button--danger {
-  background: linear-gradient(135deg, var(--cyber-red) 0%, var(--cyber-magenta) 100%) !important;
+  background: var(--danger) !important;
   border: none !important;
-  box-shadow: 0 0 20px rgba(255, 0, 100, 0.3) !important;
 }
 
 .van-toast {
-  background: rgba(10, 10, 20, 0.95) !important;
-  border: 1px solid var(--border-glow) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
   color: var(--text-primary) !important;
-  font-family: inherit !important;
-  letter-spacing: 1px !important;
 }
 
 .van-dialog {
-  background: var(--cyber-bg-secondary) !important;
-  border: 1px solid var(--border-glow) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
 }
 
 .van-dialog__header {
@@ -153,154 +168,27 @@ body {
   color: var(--text-secondary) !important;
 }
 
-/* 仪表盘样式 */
-.dashboard {
-  padding: 16px;
-  height: 100%;
-  overflow-y: auto;
-  background: transparent;
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: rgba(26, 26, 46, 0.8);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-card .value {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--cyber-cyan);
-  text-shadow: 0 0 10px var(--cyber-cyan);
-}
-
-.stat-card .label {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-/* Linode 状态卡片 */
-.linode-card {
-  background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
-}
-
-.linode-card .status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  font-size: 10px;
-  letter-spacing: 2px;
-  margin-bottom: 12px;
-  text-transform: uppercase;
-}
-
-.linode-card .status-badge.running {
-  background: rgba(0, 255, 100, 0.2);
-  border-color: var(--cyber-green);
-  color: var(--cyber-green);
-}
-
-.linode-card .ip-address {
-  font-size: 18px;
-  font-weight: bold;
-  margin-bottom: 8px;
-  color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.linode-card .cost {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-/* 紧急销毁按钮 */
-.emergency-btn {
-  width: 100%;
-  height: 50px;
-  background: linear-gradient(135deg, var(--cyber-red) 0%, var(--cyber-magenta) 100%);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  letter-spacing: 3px;
-  cursor: pointer;
-  margin-top: 20px;
-  box-shadow: 0 0 20px rgba(255, 0, 100, 0.3);
-  transition: all 0.3s;
-}
-
-.emergency-btn:hover {
-  box-shadow: 0 0 30px rgba(255, 0, 100, 0.5);
-  transform: translateY(-2px);
-}
-
-.emergency-btn:active {
-  transform: translateY(0);
-}
-
-/* 下载速度 */
-.speed-display {
-  background: rgba(26, 26, 46, 0.8);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
-
-.speed-display .speed-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: var(--cyber-green);
-  text-shadow: 0 0 10px var(--cyber-green);
-}
-
-.speed-display .speed-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 2px;
-}
-
-/* 滚动条样式 */
+/* 滚动条 */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 255, 0.3);
-  border-radius: 3px;
+  background: var(--gray-700);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 255, 0.5);
+  background: var(--gray-600);
 }
 
-/* 选中文字颜色 */
+/* 选中文字 */
 ::selection {
-  background: rgba(0, 255, 255, 0.3);
+  background: rgba(59, 130, 246, 0.3);
   color: #fff;
 }

@@ -1,129 +1,119 @@
 <template>
   <div class="swipe-view">
-    <!-- 顶部状态栏 -->
-    <div class="status-bar">
-      <div class="logo">
-        <span class="logo-icon">◈</span>
-        <span class="logo-text">SWIPE</span>
+    <!-- 顶部栏 -->
+    <header class="header">
+      <h1 class="title">Swipe</h1>
+      <div class="counter" v-if="taskStore.total > 0">
+        {{ taskStore.total }}
       </div>
-      <div class="stats">
-        <div class="stat-item">
-          <span class="stat-value">{{ taskStore.total }}</span>
-          <span class="stat-label">PENDING</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 扫描线效果 -->
-    <div class="scanline"></div>
+    </header>
 
     <!-- 空状态 -->
     <div v-if="taskStore.isEmpty" class="empty-state">
-      <div class="empty-icon">⟐</div>
-      <div class="empty-text">NO DATA STREAM</div>
-      <button class="cyber-button" @click="refresh">
-        <span>REFRESH</span>
+      <div class="empty-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </div>
+      <p class="empty-text">暂无待筛选资源</p>
+      <button class="refresh-btn" @click="refresh">
+        刷新
       </button>
     </div>
 
     <!-- 加载状态 -->
     <div v-else-if="taskStore.loading && !taskStore.currentTask" class="loading-state">
-      <div class="loader"></div>
-      <div class="loading-text">LOADING...</div>
+      <div class="spinner"></div>
     </div>
 
-    <!-- 主卡片区域 -->
-    <div v-else class="card-container" ref="cardContainer">
-      <div class="main-card" :style="cardTransform" @touchstart="onTouchStart" @touchmove="onTouchMove"
-        @touchend="onTouchEnd" @mousedown="onMouseDown">
-        <!-- 决策指示器 -->
-        <div class="decision-indicator accept" :class="{ active: decision === 'accept' }">
-          <span>DOWNLOAD</span>
+    <!-- 主卡片 -->
+    <div v-else class="card-area">
+      <div class="card" :style="cardStyle" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd"
+        @mousedown="onMouseDown">
+        <!-- 决策反馈 -->
+        <div class="feedback accept" :class="{ visible: decision === 'accept' }">
+          下载
         </div>
-        <div class="decision-indicator reject" :class="{ active: decision === 'reject' }">
-          <span>SKIP</span>
+        <div class="feedback reject" :class="{ visible: decision === 'reject' }">
+          跳过
         </div>
 
-        <!-- 图片区域 -->
-        <div class="image-container">
-          <!-- 图片数量指示器 -->
-          <div class="image-counter" v-if="currentImages.length > 1">
-            {{ currentImageIndex + 1 }} / {{ currentImages.length }}
-          </div>
+        <!-- 图片区 -->
+        <div class="image-area">
+          <template v-if="currentImages.length > 0">
+            <!-- 图片 -->
+            <img :src="`/previews/${currentImages[imageIndex]}`" class="image" :style="imageStyle"
+              @error="e => e.target.src = ''">
 
-          <!-- 上下滑动提示 -->
-          <div class="swipe-hint up" v-if="currentImageIndex > 0">
-            <span>▲</span>
-          </div>
-          <div class="swipe-hint down" v-if="currentImageIndex < currentImages.length - 1">
-            <span>▼</span>
-          </div>
+            <!-- 图片计数 -->
+            <div class="image-count" v-if="currentImages.length > 1">
+              {{ imageIndex + 1 }} / {{ currentImages.length }}
+            </div>
 
-          <!-- 图片显示 -->
-          <img v-if="currentImages.length > 0" :src="`/previews/${currentImages[currentImageIndex]}`"
-            class="preview-image" :style="imageTransform" @error="handleImageError">
+            <!-- 上下切换按钮 -->
+            <button class="nav-btn prev" v-if="imageIndex > 0" @click.stop="imageIndex--">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </button>
+            <button class="nav-btn next" v-if="imageIndex < currentImages.length - 1" @click.stop="imageIndex++">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </template>
+
           <div v-else class="no-image">
-            <span class="no-image-icon">◇</span>
-            <span>NO PREVIEW</span>
-          </div>
-
-          <!-- 图片缩略图列表 -->
-          <div class="thumbnail-strip" v-if="currentImages.length > 1">
-            <div v-for="(img, idx) in currentImages.slice(0, 8)" :key="idx" class="thumbnail"
-              :class="{ active: idx === currentImageIndex }" @click="currentImageIndex = idx">
-              <img :src="`/previews/${img}`" @error="e => e.target.style.display = 'none'">
-            </div>
-            <div class="thumbnail more" v-if="currentImages.length > 8">
-              +{{ currentImages.length - 8 }}
-            </div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
           </div>
         </div>
 
-        <!-- 信息区域 -->
-        <div class="info-section">
-          <div class="title">{{ taskStore.currentTask?.title || 'UNKNOWN' }}</div>
-          <div class="description" v-if="taskStore.currentTask?.description">
-            {{ taskStore.currentTask.description }}
+        <!-- 缩略图 -->
+        <div class="thumbnails" v-if="currentImages.length > 1">
+          <div v-for="(img, idx) in currentImages.slice(0, 10)" :key="idx" class="thumb"
+            :class="{ active: idx === imageIndex }" @click.stop="imageIndex = idx">
+            <img :src="`/previews/${img}`" @error="e => e.target.style.opacity = 0">
           </div>
-          <div class="meta">
-            <span class="meta-item">
-              <span class="meta-icon">◉</span>
-              {{ formatSize(taskStore.currentTask?.file_size) }}
-            </span>
-            <span class="meta-item">
-              <span class="meta-icon">◷</span>
-              {{ formatTime(taskStore.currentTask?.created_at) }}
-            </span>
+          <div class="thumb more" v-if="currentImages.length > 10">
+            +{{ currentImages.length - 10 }}
+          </div>
+        </div>
+
+        <!-- 信息区 -->
+        <div class="info">
+          <h2 class="info-title">{{ taskStore.currentTask?.title || '未知' }}</h2>
+          <p class="info-desc" v-if="taskStore.currentTask?.description">
+            {{ taskStore.currentTask.description }}
+          </p>
+          <div class="info-meta">
+            <span>{{ formatSize(taskStore.currentTask?.file_size) }}</span>
+            <span>{{ formatTime(taskStore.currentTask?.created_at) }}</span>
           </div>
         </div>
       </div>
 
       <!-- 操作提示 -->
-      <div class="gesture-hints">
-        <div class="hint left">
-          <span class="hint-arrow">←</span>
-          <span class="hint-text">SKIP</span>
-        </div>
-        <div class="hint up">
-          <span class="hint-arrow">↑↓</span>
-          <span class="hint-text">IMAGES</span>
-        </div>
-        <div class="hint right">
-          <span class="hint-text">DOWNLOAD</span>
-          <span class="hint-arrow">→</span>
-        </div>
+      <div class="hints">
+        <span>← 跳过</span>
+        <span>↑↓ 切图</span>
+        <span>下载 →</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { showToast } from 'vant'
 import { useTaskStore } from '../stores/tasks'
 
 const taskStore = useTaskStore()
-const cardContainer = ref(null)
 
 // 滑动状态
 const offsetX = ref(0)
@@ -131,87 +121,70 @@ const offsetY = ref(0)
 const isDragging = ref(false)
 const startX = ref(0)
 const startY = ref(0)
-const dragDirection = ref(null) // 'horizontal' | 'vertical'
+const direction = ref(null)
 
-// 当前图片索引
-const currentImageIndex = ref(0)
+// 图片索引
+const imageIndex = ref(0)
 
-// 当前任务的图片列表
+// 当前图片列表
 const currentImages = computed(() => {
   const task = taskStore.currentTask
   if (!task) return []
-  if (task.preview_images?.length > 0) return task.preview_images
+  if (task.preview_images?.length) return task.preview_images
   if (task.preview_image) return [task.preview_image]
   return []
 })
 
-// 任务切换时重置图片索引
+// 任务切换时重置
 watch(() => taskStore.currentTask?.id, () => {
-  currentImageIndex.value = 0
+  imageIndex.value = 0
   offsetX.value = 0
   offsetY.value = 0
 })
 
 // 决策状态
 const decision = computed(() => {
-  if (offsetX.value > 80) return 'accept'
-  if (offsetX.value < -80) return 'reject'
+  if (offsetX.value > 60) return 'accept'
+  if (offsetX.value < -60) return 'reject'
   return null
 })
 
-// 卡片变换
-const cardTransform = computed(() => {
-  const rotate = offsetX.value * 0.02
+// 卡片样式
+const cardStyle = computed(() => ({
+  transform: `translateX(${offsetX.value}px) rotate(${offsetX.value * 0.015}deg)`,
+  transition: isDragging.value ? 'none' : 'transform 0.3s ease'
+}))
+
+// 图片样式
+const imageStyle = computed(() => {
+  if (direction.value !== 'vertical') return {}
   return {
-    transform: `translateX(${offsetX.value}px) rotate(${rotate}deg)`,
-    transition: isDragging.value ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+    transform: `translateY(${offsetY.value * 0.2}px)`,
+    transition: isDragging.value ? 'none' : 'transform 0.2s ease'
   }
 })
 
-// 图片变换 (垂直滑动)
-const imageTransform = computed(() => {
-  if (dragDirection.value === 'vertical') {
-    return {
-      transform: `translateY(${offsetY.value * 0.3}px)`,
-      transition: isDragging.value ? 'none' : 'transform 0.2s ease'
-    }
-  }
-  return {}
-})
-
-// 触摸开始
+// 触摸事件
 function onTouchStart(e) {
-  if (e.touches.length !== 1) return
   startX.value = e.touches[0].clientX
   startY.value = e.touches[0].clientY
   isDragging.value = true
-  dragDirection.value = null
+  direction.value = null
 }
 
-// 触摸移动
 function onTouchMove(e) {
   if (!isDragging.value) return
+  const dx = e.touches[0].clientX - startX.value
+  const dy = e.touches[0].clientY - startY.value
 
-  const x = e.touches[0].clientX
-  const y = e.touches[0].clientY
-  const dx = x - startX.value
-  const dy = y - startY.value
-
-  // 确定滑动方向
-  if (!dragDirection.value) {
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-      dragDirection.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
-    }
+  if (!direction.value && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    direction.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
   }
 
-  if (dragDirection.value === 'horizontal') {
-    offsetX.value = dx
-  } else if (dragDirection.value === 'vertical') {
-    offsetY.value = dy
-  }
+  if (direction.value === 'horizontal') offsetX.value = dx
+  if (direction.value === 'vertical') offsetY.value = dy
 }
 
-// 触摸结束
 function onTouchEnd() {
   finishDrag()
 }
@@ -221,96 +194,70 @@ function onMouseDown(e) {
   startX.value = e.clientX
   startY.value = e.clientY
   isDragging.value = true
-  dragDirection.value = null
+  direction.value = null
 
-  const onMouseMove = (e) => {
-    if (!isDragging.value) return
+  const onMove = (e) => {
     const dx = e.clientX - startX.value
     const dy = e.clientY - startY.value
 
-    if (!dragDirection.value) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        dragDirection.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
-      }
+    if (!direction.value && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      direction.value = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
     }
 
-    if (dragDirection.value === 'horizontal') {
-      offsetX.value = dx
-    } else if (dragDirection.value === 'vertical') {
-      offsetY.value = dy
-    }
+    if (direction.value === 'horizontal') offsetX.value = dx
+    if (direction.value === 'vertical') offsetY.value = dy
   }
 
-  const onMouseUp = () => {
+  const onUp = () => {
     finishDrag()
-    document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
   }
 
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
 }
 
-// 完成滑动
 async function finishDrag() {
   isDragging.value = false
 
-  // 水平滑动 - 决策
-  if (dragDirection.value === 'horizontal') {
-    const threshold = 100
-    if (offsetX.value > threshold) {
-      await handleConfirm()
-    } else if (offsetX.value < -threshold) {
-      await handleIgnore()
-    }
+  if (direction.value === 'horizontal') {
+    if (offsetX.value > 80) await handleConfirm()
+    else if (offsetX.value < -80) await handleIgnore()
   }
 
-  // 垂直滑动 - 切换图片
-  if (dragDirection.value === 'vertical') {
-    const threshold = 50
-    if (offsetY.value < -threshold && currentImageIndex.value < currentImages.value.length - 1) {
-      currentImageIndex.value++
-    } else if (offsetY.value > threshold && currentImageIndex.value > 0) {
-      currentImageIndex.value--
+  if (direction.value === 'vertical') {
+    if (offsetY.value < -40 && imageIndex.value < currentImages.value.length - 1) {
+      imageIndex.value++
+    } else if (offsetY.value > 40 && imageIndex.value > 0) {
+      imageIndex.value--
     }
   }
 
   offsetX.value = 0
   offsetY.value = 0
-  dragDirection.value = null
+  direction.value = null
 }
 
-// 确认下载
 async function handleConfirm() {
-  const task = taskStore.currentTask
-  if (!task) return
-
+  if (!taskStore.currentTask) return
   try {
-    await taskStore.confirm(task.id)
-    showToast({ message: 'DOWNLOADING...', icon: 'success' })
-    checkLoadMore()
-  } catch (error) {
-    showToast({ message: 'ERROR', icon: 'fail' })
+    await taskStore.confirm(taskStore.currentTask.id)
+    showToast('已添加下载')
+    if (taskStore.pending.length < 5) taskStore.loadPending()
+  } catch (e) {
+    showToast('操作失败')
   }
 }
 
-// 忽略任务
 async function handleIgnore() {
-  const task = taskStore.currentTask
-  if (!task) return
-
+  if (!taskStore.currentTask) return
   try {
-    await taskStore.ignore(task.id)
-    showToast({ message: 'SKIPPED', icon: 'clear' })
-    checkLoadMore()
-  } catch (error) {
-    showToast({ message: 'ERROR', icon: 'fail' })
-  }
-}
-
-function checkLoadMore() {
-  if (taskStore.pending.length < 5 && taskStore.hasMore) {
-    taskStore.loadPending()
+    await taskStore.ignore(taskStore.currentTask.id)
+    showToast('已跳过')
+    if (taskStore.pending.length < 5) taskStore.loadPending()
+  } catch (e) {
+    showToast('操作失败')
   }
 }
 
@@ -318,109 +265,55 @@ function refresh() {
   taskStore.loadPending(true)
 }
 
-function handleImageError(e) {
-  e.target.style.display = 'none'
-}
-
 function formatSize(bytes) {
-  if (!bytes) return 'N/A'
-  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB'
-  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB'
-  return (bytes / 1024).toFixed(1) + ' KB'
+  if (!bytes) return '--'
+  if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + ' GB'
+  if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + ' MB'
+  return (bytes / 1e3).toFixed(1) + ' KB'
 }
 
-function formatTime(dateStr) {
-  if (!dateStr) return 'N/A'
-  const diff = Date.now() - new Date(dateStr).getTime()
-  if (diff < 60000) return 'NOW'
-  if (diff < 3600000) return Math.floor(diff / 60000) + 'm'
-  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h'
-  return Math.floor(diff / 86400000) + 'd'
+function formatTime(str) {
+  if (!str) return '--'
+  const d = Date.now() - new Date(str).getTime()
+  if (d < 6e4) return '刚刚'
+  if (d < 36e5) return Math.floor(d / 6e4) + ' 分钟前'
+  if (d < 864e5) return Math.floor(d / 36e5) + ' 小时前'
+  return Math.floor(d / 864e5) + ' 天前'
 }
 
-onMounted(() => {
-  taskStore.loadPending(true)
-})
+onMounted(() => taskStore.loadPending(true))
 </script>
 
 <style scoped>
-/* 全局深色主题 */
 .swipe-view {
   height: 100%;
-  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
   display: flex;
   flex-direction: column;
-  position: relative;
-  overflow: hidden;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: var(--bg-primary);
 }
 
-/* 扫描线效果 */
-.scanline {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(0deg,
-      rgba(0, 255, 255, 0.03) 0px,
-      rgba(0, 255, 255, 0.03) 1px,
-      transparent 1px,
-      transparent 3px);
-  pointer-events: none;
-  z-index: 100;
-}
-
-/* 顶部状态栏 */
-.status-bar {
+/* 顶部栏 */
+.header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.logo-icon {
-  font-size: 24px;
-  color: #00ffff;
-  text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
-  animation: pulse 2s infinite;
-}
-
-.logo-text {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 4px;
+.counter {
+  background: var(--accent);
   color: #fff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-}
-
-.stats {
-  display: flex;
-  gap: 20px;
-}
-
-.stat-item {
-  text-align: right;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #ff00ff;
-  text-shadow: 0 0 10px #ff00ff;
-}
-
-.stat-label {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
 }
 
 /* 空状态 */
@@ -431,324 +324,40 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .empty-icon {
-  font-size: 80px;
-  color: #00ffff;
-  text-shadow: 0 0 30px #00ffff;
-  animation: float 3s ease-in-out infinite;
+  color: var(--text-muted);
 }
 
-.empty-text,
-.loading-text {
+.empty-text {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.refresh-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 10px 24px;
+  border-radius: 8px;
   font-size: 14px;
-  letter-spacing: 4px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.cyber-button {
-  background: transparent;
-  border: 1px solid #00ffff;
-  color: #00ffff;
-  padding: 12px 32px;
-  font-family: inherit;
-  font-size: 12px;
-  letter-spacing: 3px;
   cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s;
+  transition: background 0.2s;
 }
 
-.cyber-button:hover {
-  background: rgba(0, 255, 255, 0.1);
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+.refresh-btn:hover {
+  background: var(--bg-tertiary);
 }
 
-.loader {
-  width: 50px;
-  height: 50px;
-  border: 2px solid transparent;
-  border-top-color: #00ffff;
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-/* 主卡片区域 */
-.card-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  padding-bottom: calc(70px + env(safe-area-inset-bottom));
-  overflow: hidden;
-}
-
-.main-card {
-  flex: 1;
-  background: linear-gradient(145deg, rgba(20, 20, 35, 0.9) 0%, rgba(10, 10, 20, 0.95) 100%);
-  border: 1px solid rgba(0, 255, 255, 0.2);
-  border-radius: 16px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow:
-    0 0 30px rgba(0, 255, 255, 0.1),
-    inset 0 0 60px rgba(0, 0, 0, 0.5);
-  cursor: grab;
-  touch-action: none;
-}
-
-.main-card:active {
-  cursor: grabbing;
-}
-
-/* 决策指示器 */
-.decision-indicator {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 20;
-}
-
-.decision-indicator.accept {
-  right: 20px;
-  background: rgba(0, 255, 100, 0.2);
-  border: 2px solid #00ff64;
-  color: #00ff64;
-  text-shadow: 0 0 10px #00ff64;
-}
-
-.decision-indicator.reject {
-  left: 20px;
-  background: rgba(255, 0, 100, 0.2);
-  border: 2px solid #ff0064;
-  color: #ff0064;
-  text-shadow: 0 0 10px #ff0064;
-}
-
-.decision-indicator.active {
-  opacity: 1;
-}
-
-/* 图片区域 */
-.image-container {
-  flex: 1;
-  position: relative;
-  background: #000;
-  overflow: hidden;
-  min-height: 200px;
-}
-
-.image-counter {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  color: #00ffff;
-  padding: 6px 12px;
-  font-size: 12px;
-  letter-spacing: 2px;
-  border-radius: 4px;
-  z-index: 10;
-}
-
-.preview-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-.no-image {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.no-image-icon {
-  font-size: 60px;
-  animation: pulse 2s infinite;
-}
-
-/* 滑动提示 */
-.swipe-hint {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(0, 255, 255, 0.5);
-  font-size: 20px;
-  animation: bounce 1.5s infinite;
-  z-index: 10;
-}
-
-.swipe-hint.up {
-  top: 16px;
-}
-
-.swipe-hint.down {
-  bottom: 16px;
-}
-
-/* 缩略图条 */
-.thumbnail-strip {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  right: 16px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px 0;
-  scrollbar-width: none;
-}
-
-.thumbnail-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.thumbnail {
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.thumbnail.active {
-  border-color: #00ffff;
-  box-shadow: 0 0 10px #00ffff;
-}
-
-.thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumbnail.more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
-  color: #00ffff;
-  font-size: 12px;
-}
-
-/* 信息区域 */
-.info-section {
-  padding: 20px;
-  border-top: 1px solid rgba(0, 255, 255, 0.1);
-  background: linear-gradient(180deg, rgba(0, 20, 30, 0.8) 0%, rgba(0, 10, 20, 0.9) 100%);
-}
-
-.title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1.4;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
-.description {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.5;
-  margin-bottom: 12px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
-.meta {
-  display: flex;
-  gap: 20px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: rgba(0, 255, 255, 0.7);
-}
-
-.meta-icon {
-  font-size: 10px;
-}
-
-/* 手势提示 */
-.gesture-hints {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  margin-top: 8px;
-}
-
-.hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-  letter-spacing: 2px;
-}
-
-.hint-arrow {
-  font-size: 16px;
-  color: rgba(0, 255, 255, 0.5);
-}
-
-/* 动画 */
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-20px);
-  }
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -757,15 +366,214 @@ onMounted(() => {
   }
 }
 
-@keyframes bounce {
+/* 卡片区域 */
+.card-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  padding-bottom: calc(60px + env(safe-area-inset-bottom) + 16px);
+  overflow: hidden;
+}
 
-  0%,
-  100% {
-    transform: translateX(-50%) translateY(0);
-  }
+.card {
+  flex: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  touch-action: none;
+  cursor: grab;
+}
 
-  50% {
-    transform: translateX(-50%) translateY(-5px);
-  }
+.card:active {
+  cursor: grabbing;
+}
+
+/* 决策反馈 */
+.feedback {
+  position: absolute;
+  top: 20px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.feedback.accept {
+  right: 20px;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.feedback.reject {
+  left: 20px;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.feedback.visible {
+  opacity: 1;
+}
+
+/* 图片区 */
+.image-area {
+  flex: 1;
+  position: relative;
+  background: #0a0a0a;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.no-image {
+  color: var(--text-muted);
+}
+
+.image-count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+/* 上下按钮 */
+.nav-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.nav-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.nav-btn.prev {
+  top: 12px;
+}
+
+.nav-btn.next {
+  bottom: 12px;
+}
+
+/* 缩略图 */
+.thumbnails {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.thumbnails::-webkit-scrollbar {
+  display: none;
+}
+
+.thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.thumb.active {
+  border-color: var(--accent);
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb.more {
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* 信息区 */
+.info {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.info-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.info-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.info-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* 操作提示 */
+.hints {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 20px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 </style>
