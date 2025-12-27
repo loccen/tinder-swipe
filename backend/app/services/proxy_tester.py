@@ -52,9 +52,6 @@ class ProxyTester:
             },
             "socks5": {
                 "listen": f"127.0.0.1:{socks5_port}"
-            },
-            "transport": {
-                "type": "udp"
             }
         }
         
@@ -70,27 +67,46 @@ class ProxyTester:
                 stderr=asyncio.subprocess.PIPE
             )
             
-            # 等待客户端建立连接 (5秒)
-            await asyncio.sleep(5)
+            logger.info(f"Hysteria 客户端已启动 (PID: {process.pid})，等待握手...")
             
+            # 等待客户端建立连接 (延长至 10 秒)
+            await asyncio.sleep(10)
+            
+            # 检查进程是否还在运行
+            if process.returncode is not None:
+                _, stderr = await process.communicate()
+                logger.error(f"Hysteria 客户端意外退出 (Code: {process.returncode}): {stderr.decode()}")
+                return None
+
             try:
                 # 3. 使用 httpx 通过 SOCKS5 代理请求 IP 查询服务
                 # 注意：需要安装 httpx[socks]
                 async with httpx.AsyncClient(
                     proxy=f"socks5://127.0.0.1:{socks5_port}",
                     verify=False,
-                    timeout=10.0
+                    timeout=15.0
                 ) as client:
+                    logger.info(f"正在通过 SOCKS5:{socks5_port} 发起测试请求...")
                     response = await client.get("https://ifconfig.me/ip")
                     if response.status_code == 200:
                         return response.text.strip()
             except Exception as e:
+                # 请求失败时，尝试获取一些 Hysteria 的输出以便排查
                 logger.error(f"代理请求失败: {e}")
+                # 注意：这里不能用 wait() 否则会阻塞。稍微读取一下 stderr
+                try:
+                    # 尝试非阻塞读取一部分 stderr
+                    # 由于 asyncio 限制，这里简单 terminate 后获取全部比较稳妥
+                    pass
+                except:
+                    pass
             finally:
                 # 4. 关闭进程
                 if process.returncode is None:
                     process.terminate()
-                    await process.wait()
+                    stdout, stderr = await process.communicate()
+                    if stderr:
+                        logger.info(f"Hysteria 客户端输出: {stderr.decode()[:500]}")
                     
         finally:
             if os.path.exists(config_file.name):

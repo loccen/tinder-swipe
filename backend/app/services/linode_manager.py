@@ -23,10 +23,15 @@ class LinodeManager:
 packages:
   - wget
   - unzip
+  - ufw
+  - curl
 
 runcmd:
-  # 下载并安装 Hysteria2
-  - wget -qO /tmp/hysteria https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64
+  # 下载并安装 Hysteria2 (增加重试)
+  - |
+    for i in {1..5}; do
+      wget -qO /tmp/hysteria https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 && break || sleep 5
+    done
   - chmod +x /tmp/hysteria
   - mv /tmp/hysteria /usr/local/bin/hysteria
   
@@ -78,6 +83,9 @@ runcmd:
   # 配置防火墙
   - ufw allow {port}/udp
   - ufw --force enable
+  
+  # 标记就绪
+  - touch /var/run/hysteria_ready
 """
     
     def __init__(self, token: Optional[str] = None):
