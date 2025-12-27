@@ -21,7 +21,10 @@ import {
     Skeleton,
     Field,
     Tab,
-    Tabs
+    Tabs,
+    Collapse,
+    CollapseItem,
+    NoticeBar
 } from 'vant'
 import 'vant/lib/index.css'
 import '@vant/touch-emulator'
@@ -60,6 +63,9 @@ app.use(Skeleton)
 app.use(Field)
 app.use(Tab)
 app.use(Tabs)
+app.use(Collapse)
+app.use(CollapseItem)
+app.use(NoticeBar)
 
 app.mount('#app')
 

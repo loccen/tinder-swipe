@@ -2,35 +2,54 @@
   <div class="settings-view">
     <van-nav-bar title="设置" :border="false" />
 
+    <!-- 顶层提示：状态生效反馈 -->
+    <van-notice-bar left-icon="info-o" text="修改后约 30 秒自动生效，无需手动重启采集器。" background="rgba(255, 255, 255, 0.1)"
+      color="#fff" />
+
     <div class="settings-content">
       <!-- 频道管理 -->
-      <van-cell-group inset title="监听频道">
-        <van-cell v-for="channel in channels" :key="channel.id" :title="channel.name || channel.id"
-          :label="channel.name ? channel.id : null">
+      <div class="section-title">监听频道</div>
+      <van-cell-group inset>
+        <van-cell v-for="channel in channels" :key="channel.id">
+          <template #title>
+            <div class="channel-title">
+              <span class="status-dot"></span>
+              {{ channel.name || channel.id }}
+            </div>
+          </template>
+          <template #label v-if="channel.name">
+            {{ channel.id }}
+          </template>
           <template #right-icon>
-            <van-button type="danger" size="small" plain @click="handleDelete(channel)">
-              删除
-            </van-button>
+            <div class="action-btns">
+              <van-icon name="edit" class="edit-icon" @click="handleEdit(channel)" />
+              <van-button type="danger" size="small" plain round @click="handleDelete(channel)">
+                删除
+              </van-button>
+            </div>
           </template>
         </van-cell>
 
-        <van-cell v-if="channels.length === 0" title="暂无监听频道" />
+        <!-- 空状态设计 -->
+        <van-empty v-if="channels.length === 0" image="network" description="暂无监听频道，请在下方添加" />
       </van-cell-group>
 
       <!-- 添加频道 -->
-      <van-cell-group inset title="添加频道" style="margin-top: 20px">
-        <van-field v-model="newChannel.id" label="频道 ID" placeholder="用户名或 -100xxx 格式的 ID" />
+      <div class="section-title">添加频道</div>
+      <van-cell-group inset>
+        <van-field v-model="newChannel.id" label="频道 ID" placeholder="粘贴链接或输入 ID" @input="handleIdInput" />
         <van-field v-model="newChannel.name" label="显示名称" placeholder="可选，用于展示" />
         <van-cell>
-          <van-button type="primary" block :loading="adding" @click="handleAdd">
+          <van-button type="primary" block round :loading="adding" @click="handleAdd">
             添加频道
           </van-button>
         </van-cell>
       </van-cell-group>
 
-      <!-- 使用说明 -->
-      <van-cell-group inset title="说明" style="margin-top: 20px">
-        <van-cell>
+      <!-- 使用说明：改为收纳折叠面板 -->
+      <div class="section-title">使用说明</div>
+      <van-collapse v-model="activeNames" inset>
+        <van-collapse-item title="如何获取频道 ID？" name="1">
           <div class="help-text">
             <p><strong>频道 ID 格式：</strong></p>
             <ul>
@@ -39,32 +58,67 @@
             </ul>
             <p><strong>获取私有频道 ID：</strong></p>
             <ol>
-              <li>在 Telegram 桌面版打开频道</li>
-              <li>复制任意消息的链接</li>
-              <li>链接格式 <code>t.me/c/1234567890/123</code></li>
-              <li>频道 ID = <code>-100</code> + <code>1234567890</code></li>
+              <li>在 Telegram 桌面版中右键点击频道消息</li>
+              <li>选择“复制消息链接”，链接格式如 <code>t.me/c/1234567890/123</code></li>
+              <li>直接将该链接粘贴到上方的“频道 ID”框，系统将自动解析。</li>
             </ol>
-            <p style="color: #07c160">✅ 修改后约 30 秒自动生效，无需重启</p>
           </div>
-        </van-cell>
-      </van-cell-group>
+        </van-collapse-item>
+      </van-collapse>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { showToast, showConfirmDialog } from 'vant'
+import { ref, onMounted, h } from 'vue'
+import { showToast, showConfirmDialog, Dialog, Field } from 'vant'
 import api from '../api'
 
 const channels = ref([])
 const loading = ref(false)
 const adding = ref(false)
+const activeNames = ref([])
 
 const newChannel = ref({
   id: '',
   name: ''
 })
+
+// 自动解析 ID 逻辑
+function handleIdInput(val) {
+  // 识别 t.me/c/1234567890/123 格式
+  const regex = /t\.me\/c\/(\d+)/
+  const match = val.match(regex)
+  if (match && match[1]) {
+    newChannel.value.id = `-100${match[1]}`
+    showToast('已自动解析频道 ID')
+  }
+}
+
+// 编辑频道名称
+async function handleEdit(channel) {
+  const newName = ref(channel.name || '')
+  Dialog.confirm({
+    title: '编辑名称',
+    message: () => h(Field, {
+      modelValue: newName.value,
+      'onUpdate:modelValue': (val) => { newName.value = val },
+      placeholder: '请输入新的显示名称',
+      autofocus: true
+    }),
+  }).then(async () => {
+    try {
+      await api.settings.addChannel({
+        id: channel.id,
+        name: newName.value.trim() || null
+      })
+      showToast({ message: '修改成功', icon: 'success' })
+      await loadChannels()
+    } catch (error) {
+      showToast({ message: '修改失败', icon: 'fail' })
+    }
+  }).catch(() => { })
+}
 
 // 加载频道列表
 async function loadChannels() {
@@ -137,21 +191,59 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+.section-title {
+  margin: 24px 16px 12px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.channel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.action-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.edit-icon {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
 }
 
 .help-text {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.8;
+  text-align: left;
+  /* 修正对齐 */
 }
 
 .help-text p {
   color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
 }
 
 .help-text strong {
-  color: rgba(255, 255, 255, 0.9);
+  color: #fff;
 }
 
 .help-text code {
@@ -165,8 +257,18 @@ onMounted(() => {
 
 .help-text ul,
 .help-text ol {
-  padding-left: 20px;
-  margin: 8px 0;
+  padding-left: 18px;
+  margin: 12px 0;
   color: rgba(255, 255, 255, 0.6);
+}
+
+:deep(.van-collapse-item__content) {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 12px 16px;
+}
+
+:deep(.van-notice-bar) {
+  margin-top: 1px;
 }
 </style>

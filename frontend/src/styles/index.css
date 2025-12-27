@@ -81,10 +81,23 @@ body {
 
 .van-tabbar-item {
   color: var(--text-muted) !important;
+  font-size: 11px !important;
+  transition: all 0.2s ease;
 }
 
 .van-tabbar-item--active {
-  color: var(--text-primary) !important;
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.van-tabbar-item__icon {
+  font-size: 22px !important;
+  margin-bottom: 2px !important;
+}
+
+.van-tabbar-item--active .van-tabbar-item__icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
 }
 
 .van-cell-group {
