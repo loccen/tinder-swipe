@@ -123,14 +123,14 @@ class Orchestrator:
     async def _check_and_start_batch(self):
         """检查是否需要启动新批次或触发下载"""
         async with get_db_context() as db:
-            # 获取当前聚合中的批次
+            # 1. 获取当前聚合中的批次
             stmt = select(Batch).where(
                 Batch.status == BatchStatus.AGGREGATING.value
             )
             result = await db.execute(stmt)
             current_batch = result.scalar_one_or_none()
             
-            # 统计 CONFIRMED 状态的任务数
+            # 2. 统计新生成的 CONFIRMED 任务数
             count_stmt = select(func.count()).select_from(Task).where(
                 Task.status == TaskStatus.CONFIRMED.value,
                 Task.batch_id.is_(None)
@@ -138,41 +138,40 @@ class Orchestrator:
             count_result = await db.execute(count_stmt)
             pending_count = count_result.scalar()
             
-            if pending_count == 0:
+            # 3. 如果既无当前批次也无新任务，直接返回
+            if current_batch is None and pending_count == 0:
                 return
             
             now = datetime.now()
             
+            # 4. 如果没批次但有新任务，创建新批次
             if current_batch is None:
-                # 创建新批次，开启聚合窗口
                 window_end = now + timedelta(
                     minutes=self.settings.aggregation_window_minutes
                 )
-                new_batch = Batch(
+                current_batch = Batch(
                     status=BatchStatus.AGGREGATING.value,
                     window_start=now,
                     window_end=window_end
                 )
-                db.add(new_batch)
+                db.add(current_batch)
                 await db.flush()
-                
                 logger.info(
-                    f"创建新批次 #{new_batch.id}，聚合窗口至 {window_end}"
+                    f"创建新批次 #{current_batch.id}，聚合窗口至 {window_end}"
                 )
-                
-                # 将待处理任务关联到批次
-                await self._assign_tasks_to_batch(db, new_batch.id)
-                current_batch = new_batch
-            else:
-                # 将新的 CONFIRMED 任务加入当前批次
-                await self._assign_tasks_to_batch(db, current_batch.id)
             
-            # 检查是否触发下载
+            # 5. 将新产生的任务关联到当前批次
+            if pending_count > 0:
+                await self._assign_tasks_to_batch(db, current_batch.id)
+                # 刷新批次对象以获取最新的 task_count
+                await db.refresh(current_batch)
+            
+            # 6. 检查触发条件
             should_trigger = False
             
             # 条件1: 达到任务阈值
             if current_batch.task_count >= self.settings.batch_task_threshold:
-                logger.info(f"批次 #{current_batch.id} 达到任务阈值，触发下载")
+                logger.info(f"批次 #{current_batch.id} 达到任务阈值 ({current_batch.task_count})，触发下载")
                 should_trigger = True
             
             # 条件2: 聚合窗口结束
