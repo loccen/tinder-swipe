@@ -2,12 +2,15 @@
 Linode 实例管理服务
 """
 import secrets
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class LinodeManager:
@@ -118,8 +121,21 @@ runcmd:
             password=hysteria_password
         )
         
+        # 幂等性检查：先尝试查找同名标签的现有实例
+        existing_instances = await self.list_instances(label_prefix=label)
+        for inst in existing_instances:
+            if inst.get("label") == label:
+                logger.info(f"发现已存在的同名实例: {label} (ID: {inst['id']})，将复用该实例")
+                inst["hysteria_password"] = hysteria_password # 注意：密码可能无法获取，此处假设一致或由外部处理
+                inst["hysteria_port"] = hysteria_port
+                return inst
+
         # 生成 root 密码
         root_pass = secrets.token_urlsafe(24)
+        
+        # Linode API 要求 user_data 必须是 base64 编码的
+        import base64
+        user_data_b64 = base64.b64encode(user_data.encode("utf-8")).decode("utf-8")
         
         payload = {
             "type": self.instance_type,
@@ -128,11 +144,14 @@ runcmd:
             "root_pass": root_pass,
             "label": label,
             "metadata": {
-                "user_data": user_data
+                "user_data": user_data_b64
             }
         }
         
         response = await self._client.post("/linode/instances", json=payload)
+        if response.status_code != 200:
+            error_details = response.json()
+            logger.error(f"Linode API Error (400): {error_details}")
         response.raise_for_status()
         
         data = response.json()

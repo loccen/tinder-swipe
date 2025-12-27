@@ -130,7 +130,20 @@ class Orchestrator:
             result = await db.execute(stmt)
             current_batch = result.scalar_one_or_none()
             
-            # 2. 统计新生成的 CONFIRMED 任务数
+            # 2. 检查系统是否由于已有活跃批次而处于“繁忙”状态
+            busy_stmt = select(func.count()).select_from(Batch).where(
+                Batch.status.in_([
+                    BatchStatus.PROVISIONING.value,
+                    BatchStatus.ACTIVE.value
+                ])
+            )
+            busy_result = await db.execute(busy_stmt)
+            if busy_result.scalar() > 0:
+                # 系统繁忙，暂不启动新批次，但可以继续往当前 AGGREGATING 批次加任务
+                if current_batch is None:
+                    return
+
+            # 3. 统计新生成的 CONFIRMED 任务数
             count_stmt = select(func.count()).select_from(Task).where(
                 Task.status == TaskStatus.CONFIRMED.value,
                 Task.batch_id.is_(None)
@@ -212,8 +225,6 @@ class Orchestrator:
         batch.status = BatchStatus.PROVISIONING.value
         await db.flush()
         
-        logger.info(f"批次 #{batch.id} 开始创建 Linode 实例...")
-        
         try:
             linode_manager = get_linode_manager()
             
@@ -248,27 +259,42 @@ class Orchestrator:
             )
             
         except Exception as e:
-            logger.error(f"创建 Linode 失败: {e}")
+            logger.error(f"启动批次 #{batch.id} 下载流程失败: {e}")
             batch.status = BatchStatus.FAILED.value
             
-            # 将任务状态恢复为 CONFIRMED
+            # 将关联任务打回 CONFIRMED 状态以待后续批次处理
             await db.execute(
                 update(Task)
                 .where(Task.batch_id == batch.id)
                 .values(batch_id=None)
             )
+            # 如果已有 Linode 记录但创建过程中断，尝试销毁（虽然此时可能并未成功创建）
+            if batch.linode_id:
+                linode = await db.get(Linode, batch.linode_id)
+                if linode:
+                    asyncio.create_task(self._destroy_linode_orphan(linode.linode_id))
     
     async def _wait_and_activate_batch(self, batch_id: int, linode_db_id: int):
         """等待 Linode 就绪并激活批次下载"""
         linode_manager = get_linode_manager()
         aria2_client = get_aria2_client()
         
+        # 增加重试逻辑，应对数据库事务提交的竞态条件
+        linode = None
+        for _ in range(5):
+            async with get_db_context() as db:
+                linode = await db.get(Linode, linode_db_id)
+                if linode:
+                    break
+                await asyncio.sleep(1)
+        
+        if not linode:
+            logger.error(f"Linode 记录 {linode_db_id} 经过重试后仍不存在")
+            return
+            
         async with get_db_context() as db:
-            # 获取 Linode 记录
+            # 重新获取对象以绑定到当前 session
             linode = await db.get(Linode, linode_db_id)
-            if not linode:
-                logger.error(f"Linode 记录 {linode_db_id} 不存在")
-                return
             
             # 等待实例运行
             ip_address = await linode_manager.wait_for_running(
@@ -397,6 +423,8 @@ class Orchestrator:
         while self._running:
             try:
                 await self._check_batch_completion()
+                await self._check_batch_timeouts()
+                await self._cleanup_orphan_instances()
                 await self._update_linode_cost()
             except Exception as e:
                 logger.error(f"监控循环异常: {e}")
@@ -554,6 +582,74 @@ class Orchestrator:
         
         logger.warning(f"已销毁 {deleted_count} 个实例")
         return deleted_count
+
+
+    async def _check_batch_timeouts(self):
+        """检查长时间卡住的批次并进行回收"""
+        async with get_db_context() as db:
+            # 查找卡在 PROVISIONING 超过 10 分钟的批次
+            timeout_limit = datetime.now() - timedelta(minutes=10)
+            stmt = select(Batch).where(
+                Batch.status == BatchStatus.PROVISIONING.value,
+                Batch.updated_at < timeout_limit
+            )
+            result = await db.execute(stmt)
+            stuck_batches = result.scalars().all()
+            
+            for batch in stuck_batches:
+                logger.warning(f"批次 #{batch.id} 启动超时，尝试回收...")
+                batch.status = BatchStatus.FAILED.value
+                
+                # 重置任务
+                await db.execute(
+                    update(Task)
+                    .where(Task.batch_id == batch.id)
+                    .values(batch_id=None)
+                )
+                
+                # 标记 Linode 为僵尸
+                if batch.linode_id:
+                    linode = await db.get(Linode, batch.linode_id)
+                    if linode:
+                        linode.status = LinodeStatus.ZOMBIE.value
+            
+            await db.commit()
+
+    async def _cleanup_orphan_instances(self):
+        """清理不属于任何活跃批次的 Linode 实例"""
+        async with get_db_context() as db:
+            # 获取所有非销毁状态的 Linode
+            stmt = select(Linode).where(Linode.status != LinodeStatus.DESTROYED.value)
+            result = await db.execute(stmt)
+            linodes = result.scalars().all()
+            
+            for linode in linodes:
+                # 检查是否有批次正在引用它
+                batch_stmt = select(func.count()).select_from(Batch).where(
+                    Batch.linode_id == linode.id,
+                    Batch.status.in_([
+                        BatchStatus.PROVISIONING.value,
+                        BatchStatus.ACTIVE.value
+                    ])
+                )
+                batch_result = await db.execute(batch_stmt)
+                if batch_result.scalar() == 0:
+                    # 如果没有活跃批次引用，且超过 5 分钟（给新实例一些宽限期），则销毁
+                    grace_period = datetime.now() - timedelta(minutes=5)
+                    if linode.created_at < grace_period:
+                        logger.warning(f"发现孤儿 Linode {linode.linode_id}，正在清理...")
+                        await self._destroy_linode(db, linode)
+            
+            await db.commit()
+
+    async def _destroy_linode_orphan(self, linode_id: int):
+        """后台销毁孤儿实例"""
+        try:
+            linode_manager = get_linode_manager()
+            await linode_manager.delete_instance(linode_id)
+            logger.info(f"已清理孤儿 Linode 实例: {linode_id}")
+        except Exception as e:
+            logger.error(f"清理孤儿实例 {linode_id} 失败: {e}")
 
 
 # 全局编排器实例
