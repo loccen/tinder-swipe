@@ -189,10 +189,11 @@ runcmd:
         
         data = response.json()
         
-        # 附加返回代理信息
+        # 附加返回代理信息和系统凭据
         data["socks5_port"] = socks5_port
         data["socks5_username"] = socks5_username
         data["socks5_password"] = socks5_password
+        data["root_pass"] = root_pass
         
         return data
     

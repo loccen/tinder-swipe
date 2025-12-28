@@ -250,6 +250,7 @@ class Orchestrator:
                     socks5_port=socks5_port,
                     socks5_username=socks5_username,
                     socks5_password=socks5_password,
+                    root_password=instance_data.get("root_pass"),
                     status=LinodeStatus.PROVISIONING.value
                 )
                 db.add(linode)

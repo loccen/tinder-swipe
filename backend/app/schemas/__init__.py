@@ -111,6 +111,7 @@ class LinodeResponse(BaseModel):
     ip_address: Optional[str] = None
     status: str
     socks5_port: int
+    root_password: Optional[str] = None
     total_minutes: int
     hourly_cost: float
     created_at: datetime
@@ -139,6 +140,7 @@ class LinodeStatus(BaseModel):
     is_running: bool
     linode_id: Optional[int] = None
     ip_address: Optional[str] = None
+    root_password: Optional[str] = None
     uptime_minutes: int = 0
     estimated_cost: float = Field(description="预计费用 (USD)")
 

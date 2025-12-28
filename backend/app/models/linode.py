@@ -41,6 +41,9 @@ class Linode(Base, TimestampMixin):
     socks5_username: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     socks5_password: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     
+    # 系统凭据
+    root_password: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    
     # 状态管理
     status: Mapped[str] = mapped_column(
         String(32),

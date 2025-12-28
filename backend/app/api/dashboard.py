@@ -74,6 +74,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
             is_running=True,
             linode_id=running_linode.linode_id,
             ip_address=running_linode.ip_address,
+            root_password=running_linode.root_password,
             uptime_minutes=uptime,
             estimated_cost=running_linode.hourly_cost * (uptime / 60)
         )
@@ -148,8 +149,8 @@ async def check_proxy_ip(db: AsyncSession = Depends(get_db)):
     try:
         ip = await proxy_tester.check_proxy_ip(
             linode.ip_address,
-            linode.hysteria_port,
-            linode.hysteria_password
+            linode.socks5_port,
+            linode.socks5_password
         )
         if ip:
             return ProxyCheckResponse(ip=ip, success=True)
