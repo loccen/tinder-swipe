@@ -86,21 +86,35 @@ class PikPakService:
         """
         client = await self._ensure_client()
         try:
-            # 尝试用 file_list 查询，以 file_id 的父目录为参数
-            # 由于我们不知道父目录，先尝试在根目录查找
-            result = await client.file_list(parent_id="", size=500)
-            files = result.get("files", [])
+            # PikPak 转存的文件默认保存在 "Pack From Shared" 目录
+            # 先找到该目录的 ID
+            root_result = await client.file_list(parent_id="", size=100)
+            root_files = root_result.get("files", [])
             
-            for f in files:
+            pack_folder_id = None
+            for f in root_files:
+                if f.get("name") == "Pack From Shared" and f.get("kind") == "drive#folder":
+                    pack_folder_id = f.get("id")
+                    break
+                # 直接匹配
                 if f.get("id") == file_id:
-                    logger.info(f"找到文件信息: {f}")
+                    logger.info(f"在根目录找到文件: {f}")
                     return f
             
-            # 如果根目录找不到，可能是子目录或转存的文件
-            # 尝试直接获取文件下载链接来验证文件是否存在
+            # 在 Pack From Shared 目录下查找
+            if pack_folder_id:
+                pack_result = await client.file_list(parent_id=pack_folder_id, size=500)
+                pack_files = pack_result.get("files", [])
+                
+                for f in pack_files:
+                    if f.get("id") == file_id:
+                        logger.info(f"在 Pack From Shared 目录找到文件: {f}")
+                        return f
+            
+            # 如果还是找不到，尝试直接获取下载链接来验证文件是否存在
             try:
                 download_info = await client.get_download_url(file_id)
-                logger.info(f"通过下载链接获取文件信息: file_id={file_id}, download_info keys={download_info.keys() if isinstance(download_info, dict) else type(download_info)}")
+                logger.info(f"通过下载链接获取文件信息: file_id={file_id}")
                 if isinstance(download_info, dict):
                     return download_info
             except Exception as download_err:
