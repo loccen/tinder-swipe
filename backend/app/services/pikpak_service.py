@@ -1,12 +1,15 @@
 """
 PikPak API 服务
 """
+import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from pikpakapi import PikPakApi
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class PikPakService:
@@ -188,26 +191,51 @@ class PikPakService:
         Returns:
             转存后的文件/文件夹 ID 列表
         """
+        logger.info(f"开始转存分享链接: {share_url}")
         client = await self._ensure_client()
         try:
             # 获取分享信息
             share_info = await client.get_share_info(share_url)
+            
+            # 详细日志
+            logger.debug(f"分享信息响应: {share_info}")
+            
             share_id = share_info.get("share_id")
             pass_code_token = share_info.get("pass_code_token")
             files = share_info.get("files", [])
             
-            if not share_id or not files:
-                raise PikPakError("分享链接内容为空或已失效")
+            logger.info(
+                f"分享信息: share_id={share_id}, "
+                f"pass_code_token={pass_code_token[:8] if pass_code_token else 'None'}..., "
+                f"文件数量={len(files)}"
+            )
+            
+            if not share_id:
+                logger.error(f"分享 ID 为空, 响应: {share_info}")
+                raise PikPakError("分享链接无效或已失效 (share_id 为空)")
+            
+            if not files:
+                logger.error(
+                    f"分享文件列表为空, share_id={share_id}, "
+                    f"file_info字段: {share_info.get('file_info')}, "
+                    f"next_page_token: {share_info.get('next_page_token')}"
+                )
+                raise PikPakError("分享链接内容为空或已失效 (files 为空)")
             
             file_ids = [f["id"] for f in files]
+            logger.info(f"准备转存 {len(file_ids)} 个文件: {file_ids}")
             
             # 执行转存
             result = await client.restore(share_id, pass_code_token, file_ids)
+            logger.info(f"转存结果: {result}")
             
             # 转存通常返回任务 ID，需要稍等片刻让文件出现在网盘
             # 此处返回 file_id 列表
             return file_ids
+        except PikPakError:
+            raise
         except Exception as e:
+            logger.error(f"转存分享失败: {e}", exc_info=True)
             raise PikPakError(f"转存分享失败: {str(e)}")
 
     @staticmethod
