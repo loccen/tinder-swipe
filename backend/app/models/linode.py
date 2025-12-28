@@ -36,9 +36,10 @@ class Linode(Base, TimestampMixin):
     region: Mapped[str] = mapped_column(String(32), nullable=False)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     
-    # 代理配置
-    hysteria_port: Mapped[int] = mapped_column(Integer, default=443)
-    hysteria_password: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # 代理配置 (SOCKS5)
+    socks5_port: Mapped[int] = mapped_column(Integer, default=1080)
+    socks5_username: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    socks5_password: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     
     # 状态管理
     status: Mapped[str] = mapped_column(

@@ -18,74 +18,58 @@ class LinodeManager:
     
     BASE_URL = "https://api.linode.com/v4"
     
-    # Hysteria2 cloud-init 脚本模板
+    # SOCKS5 代理 cloud-init 脚本模板 (使用 Dante)
     CLOUD_INIT_TEMPLATE = """#cloud-config
 packages:
-  - wget
-  - unzip
+  - dante-server
   - ufw
-  - curl
 
 runcmd:
-  # 下载并安装 Hysteria2 (增加重试)
+  # 获取主网卡名称
   - |
-    for i in {{1..5}}; do
-      wget -qO /tmp/hysteria https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 && break || sleep 5
-    done
-  - chmod +x /tmp/hysteria
-  - mv /tmp/hysteria /usr/local/bin/hysteria
-  
-  # 生成自签名证书
-  - mkdir -p /etc/hysteria
-  - openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) -keyout /etc/hysteria/server.key -out /etc/hysteria/server.crt -days 365 -subj "/CN=www.bing.com"
-  
-  # 写入配置文件
-  - |
-    cat > /etc/hysteria/config.yaml << 'EOF'
-    listen: :{port}
+    IFACE=$(ip route | grep default | awk '{{print $5}}' | head -1)
     
-    tls:
-      cert: /etc/hysteria/server.crt
-      key: /etc/hysteria/server.key
+    # 写入 Dante 配置文件
+    cat > /etc/danted.conf << EOF
+    logoutput: syslog
     
-    auth:
-      type: password
-      password: {password}
+    internal: 0.0.0.0 port = {port}
+    external: $IFACE
     
-    masquerade:
-      type: proxy
-      proxy:
-        url: https://www.bing.com
-        rewriteHost: true
+    socksmethod: username
+    clientmethod: none
+    
+    user.privileged: root
+    user.unprivileged: nobody
+    
+    client pass {{
+        from: 0.0.0.0/0 to: 0.0.0.0/0
+        log: error
+    }}
+    
+    socks pass {{
+        from: 0.0.0.0/0 to: 0.0.0.0/0
+        protocol: tcp udp
+        command: bind connect udpassociate
+        log: error
+        socksmethod: username
+    }}
     EOF
-  
-  # 创建 systemd 服务
-  - |
-    cat > /etc/systemd/system/hysteria.service << 'EOF'
-    [Unit]
-    Description=Hysteria2 Server
-    After=network.target
     
-    [Service]
-    ExecStart=/usr/local/bin/hysteria server -c /etc/hysteria/config.yaml
-    Restart=always
-    RestartSec=5
-    
-    [Install]
-    WantedBy=multi-user.target
-    EOF
+  # 创建代理认证用户
+  - useradd -r -s /bin/false {username} || true
+  - echo "{username}:{password}" | chpasswd
   
   # 启动服务
-  - systemctl daemon-reload
-  - systemctl enable hysteria
-  - systemctl start hysteria
+  - systemctl enable danted
+  - systemctl start danted
   
   # 配置防火墙
-  - ufw allow {port}/udp
+  - ufw allow {port}/tcp
   - ufw --force enable
   
   # 标记就绪
-  - touch /var/run/hysteria_ready
+  - touch /var/run/socks5_ready
 """
     
     def __init__(self, token: Optional[str] = None):
@@ -105,28 +89,31 @@ runcmd:
     async def create_instance(
         self,
         label: str,
-        hysteria_port: int = 443,
-        hysteria_password: Optional[str] = None
+        socks5_port: int = 1080,
+        socks5_username: str = "proxy",
+        socks5_password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        创建 Linode 实例并自动部署 Hysteria2
+        创建 Linode 实例并自动部署 SOCKS5 代理
         
         Args:
             label: 实例标签
-            hysteria_port: Hysteria2 端口
-            hysteria_password: Hysteria2 密码 (不指定则自动生成)
+            socks5_port: SOCKS5 代理端口
+            socks5_username: SOCKS5 认证用户名
+            socks5_password: SOCKS5 认证密码 (不指定则自动生成)
             
         Returns:
-            实例信息 (包含 id, ip_address, password 等)
+            实例信息 (包含 id, ip_address, socks5_* 等)
         """
         # 生成随机密码
-        if not hysteria_password:
-            hysteria_password = secrets.token_urlsafe(16)
+        if not socks5_password:
+            socks5_password = secrets.token_urlsafe(16)
         
         # 生成 cloud-init 脚本
         user_data = self.CLOUD_INIT_TEMPLATE.format(
-            port=hysteria_port,
-            password=hysteria_password
+            port=socks5_port,
+            username=socks5_username,
+            password=socks5_password
         )
         
         # 幂等性检查：先尝试查找同名标签的现有实例
@@ -134,8 +121,9 @@ runcmd:
         for inst in existing_instances:
             if inst.get("label") == label:
                 logger.info(f"发现已存在的同名实例: {label} (ID: {inst['id']})，将复用该实例")
-                inst["hysteria_password"] = hysteria_password # 注意：密码可能无法获取，此处假设一致或由外部处理
-                inst["hysteria_port"] = hysteria_port
+                inst["socks5_port"] = socks5_port
+                inst["socks5_username"] = socks5_username
+                inst["socks5_password"] = socks5_password
                 return inst
 
         # 生成 root 密码
@@ -164,9 +152,10 @@ runcmd:
         
         data = response.json()
         
-        # 附加返回密码信息
-        data["hysteria_password"] = hysteria_password
-        data["hysteria_port"] = hysteria_port
+        # 附加返回代理信息
+        data["socks5_port"] = socks5_port
+        data["socks5_username"] = socks5_username
+        data["socks5_password"] = socks5_password
         
         return data
     

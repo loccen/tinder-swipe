@@ -125,18 +125,18 @@ class Orchestrator:
                         if status == "running":
                             local_linode.status = LinodeStatus.RUNNING.value
                             if not local_linode.ready_at:
-                                local_linode.ready_at = datetime.now()
+                                local_linode.ready_at = datetime.utcnow()
                     
                     await db.commit()
                     
                     # 如果实例正在运行，配置 Aria2 代理
-                    if status == "running" and ip_address and local_linode.hysteria_password:
+                    if status == "running" and ip_address and local_linode.socks5_password:
                         await self._configure_aria2_proxy(
                             ip_address, 
-                            local_linode.hysteria_port,
-                            local_linode.hysteria_password
-                        )
-            else:
+                            local_linode.socks5_port,
+                            local_linode.socks5_username,
+                            local_linode.socks5_password
+                        )\n            else:
                 logger.info("未发现远程 swipe 实例")
                 
                 # 清理本地可能的残留记录
@@ -150,7 +150,7 @@ class Orchestrator:
                     
                     for record in stale_records:
                         record.status = LinodeStatus.DESTROYED.value
-                        record.destroyed_at = datetime.now()
+                        record.destroyed_at = datetime.utcnow()
                         logger.warning(f"标记过期的本地记录为已销毁: {record.linode_id}")
                     
                     await db.commit()
@@ -230,8 +230,9 @@ class Orchestrator:
             )
             
             linode_id = instance_data["id"]
-            hysteria_port = instance_data.get("hysteria_port", 443)
-            hysteria_password = instance_data.get("hysteria_password", "")
+            socks5_port = instance_data.get("socks5_port", 1080)
+            socks5_username = instance_data.get("socks5_username", "proxy")
+            socks5_password = instance_data.get("socks5_password", "")
             region = instance_data.get("region", "unknown")
             
             # 保存到数据库
@@ -240,8 +241,9 @@ class Orchestrator:
                     linode_id=linode_id,
                     label=self.SWIPE_INSTANCE_LABEL,
                     region=region,
-                    hysteria_port=hysteria_port,
-                    hysteria_password=hysteria_password,
+                    socks5_port=socks5_port,
+                    socks5_username=socks5_username,
+                    socks5_password=socks5_password,
                     status=LinodeStatus.PROVISIONING.value
                 )
                 db.add(linode)
@@ -263,17 +265,17 @@ class Orchestrator:
                     if linode:
                         linode.ip_address = ip_address
                         linode.status = LinodeStatus.RUNNING.value
-                        linode.ready_at = datetime.now()
+                        linode.ready_at = datetime.utcnow()
                         await db.commit()
                 
                 logger.info(f"Linode {linode_id} 已就绪: {ip_address}")
                 
-                # 等待 Hysteria2 服务启动
+                # 等待 SOCKS5 服务启动
                 await asyncio.sleep(30)
                 
                 # 配置 Aria2 代理
                 await self._configure_aria2_proxy(
-                    ip_address, hysteria_port, hysteria_password
+                    ip_address, socks5_port, socks5_username, socks5_password
                 )
             else:
                 logger.error(f"Linode {linode_id} 启动超时")
@@ -470,7 +472,7 @@ class Orchestrator:
                         logger.warning(f"任务 {task.id} 下载失败")
                     elif all_complete:
                         task.status = TaskStatus.COMPLETE.value
-                        task.completed_at = datetime.now()
+                        task.completed_at = datetime.utcnow()
                         logger.info(f"任务 {task.id} 下载完成")
                         
                 except Exception as e:
@@ -524,7 +526,7 @@ class Orchestrator:
                 return
             
             # 检查是否已空闲超过 5 分钟
-            idle_threshold = datetime.now() - timedelta(minutes=5)
+            idle_threshold = datetime.utcnow() - timedelta(minutes=5)
             if last_completed > idle_threshold:
                 return
             
@@ -572,7 +574,7 @@ class Orchestrator:
                 
                 # 检查实例创建时间，如果超过 30 分钟且无任务，则销毁
                 if local_linode.created_at:
-                    age = datetime.now() - local_linode.created_at
+                    age = datetime.utcnow() - local_linode.created_at
                     if age > timedelta(minutes=30):
                         logger.warning(
                             f"发现空闲超过 30 分钟的实例: {local_linode.linode_id}，执行销毁"
@@ -615,11 +617,11 @@ class Orchestrator:
                 if linode:
                     if success:
                         linode.status = LinodeStatus.DESTROYED.value
-                        linode.destroyed_at = datetime.now()
+                        linode.destroyed_at = datetime.utcnow()
                         
                         if linode.ready_at:
                             minutes = int(
-                                (datetime.now() - linode.ready_at).total_seconds() / 60
+                                (datetime.utcnow() - linode.ready_at).total_seconds() / 60
                             )
                             linode.total_minutes = minutes
                         
@@ -649,37 +651,27 @@ class Orchestrator:
         self, 
         ip_address: str, 
         port: int, 
+        username: str,
         password: str
     ):
         """
-        配置 Aria2 代理
+        配置 Aria2 使用远程 SOCKS5 代理
         
-        注意: Aria2 不支持 hysteria2:// 协议，只支持 HTTP/HTTPS/SOCKS5。
-        实际部署时需要在本地运行 hysteria2 客户端作为 SOCKS5 代理。
-        这里暂时记录代理信息到日志，等待后续完善。
+        Args:
+            ip_address: 代理服务器 IP
+            port: SOCKS5 端口
+            username: 认证用户名
+            password: 认证密码
         """
-        # TODO: 实现方案选项:
-        # 1. 在 NAS 上运行 hysteria2 客户端，转换为 SOCKS5 代理
-        # 2. 使用支持 hysteria2 的下载工具替代 aria2
-        # 3. 在 Linode 上直接运行下载任务，然后 rsync 回本地
+        # 构建 SOCKS5 代理 URL (带认证)
+        proxy_url = f"socks5://{username}:{password}@{ip_address}:{port}"
         
-        logger.info(
-            f"Hysteria2 代理信息: {ip_address}:{port} (密码: {password[:4]}***)"
-        )
-        logger.warning(
-            "Aria2 不支持 hysteria2:// 协议，需要在本地运行 hysteria2 客户端转换为 SOCKS5 代理"
-        )
-        
-        # 如果本地已经运行了 hysteria2 客户端（例如监听 127.0.0.1:1080）
-        # 可以通过环境变量或配置文件指定 SOCKS5 地址
-        socks5_proxy = self.settings.__dict__.get("aria2_socks5_proxy")
-        if socks5_proxy:
-            try:
-                aria2_client = get_aria2_client()
-                await aria2_client.set_proxy(socks5_proxy)
-                logger.info(f"Aria2 代理已配置: {socks5_proxy}")
-            except Exception as e:
-                logger.error(f"配置 Aria2 代理失败: {e}")
+        try:
+            aria2_client = get_aria2_client()
+            await aria2_client.set_proxy(proxy_url)
+            logger.info(f"Aria2 代理已配置: socks5://{username}:***@{ip_address}:{port}")
+        except Exception as e:
+            logger.error(f"配置 Aria2 代理失败: {e}")
     
     async def _ensure_aria2_proxy_configured(self):
         """确保 Aria2 代理已配置"""
@@ -691,11 +683,12 @@ class Orchestrator:
             result = await db.execute(stmt)
             linode = result.scalar_one_or_none()
             
-            if linode and linode.ip_address and linode.hysteria_password:
+            if linode and linode.ip_address and linode.socks5_password:
                 await self._configure_aria2_proxy(
                     linode.ip_address,
-                    linode.hysteria_port,
-                    linode.hysteria_password
+                    linode.socks5_port,
+                    linode.socks5_username,
+                    linode.socks5_password
                 )
     
     # =========================================================================
@@ -718,7 +711,7 @@ class Orchestrator:
                 .where(Linode.status != LinodeStatus.DESTROYED.value)
                 .values(
                     status=LinodeStatus.DESTROYED.value,
-                    destroyed_at=datetime.now()
+                    destroyed_at=datetime.utcnow()
                 )
             )
             await db.execute(stmt)
