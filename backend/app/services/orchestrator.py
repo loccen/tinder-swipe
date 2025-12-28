@@ -556,6 +556,20 @@ class Orchestrator:
             local_linode = result.scalar_one_or_none()
             
             if local_linode:
+                # 先检查是否有活跃任务，有的话不销毁
+                active_statuses = [
+                    TaskStatus.CONFIRMED.value,
+                    TaskStatus.PIKPAK_TRANSFERRING.value,
+                    TaskStatus.DOWNLOADING.value
+                ]
+                stmt = select(func.count()).select_from(Task).where(
+                    Task.status.in_(active_statuses)
+                )
+                result = await db.execute(stmt)
+                if result.scalar() > 0:
+                    # 有活跃任务，不销毁
+                    return
+                
                 # 检查实例创建时间，如果超过 30 分钟且无任务，则销毁
                 if local_linode.created_at:
                     age = datetime.now() - local_linode.created_at
@@ -637,15 +651,35 @@ class Orchestrator:
         port: int, 
         password: str
     ):
-        """配置 Aria2 代理"""
-        proxy_url = f"hysteria2://{password}@{ip_address}:{port}"
+        """
+        配置 Aria2 代理
         
-        try:
-            aria2_client = get_aria2_client()
-            await aria2_client.set_proxy(proxy_url)
-            logger.info(f"Aria2 代理已配置: {ip_address}:{port}")
-        except Exception as e:
-            logger.error(f"配置 Aria2 代理失败: {e}")
+        注意: Aria2 不支持 hysteria2:// 协议，只支持 HTTP/HTTPS/SOCKS5。
+        实际部署时需要在本地运行 hysteria2 客户端作为 SOCKS5 代理。
+        这里暂时记录代理信息到日志，等待后续完善。
+        """
+        # TODO: 实现方案选项:
+        # 1. 在 NAS 上运行 hysteria2 客户端，转换为 SOCKS5 代理
+        # 2. 使用支持 hysteria2 的下载工具替代 aria2
+        # 3. 在 Linode 上直接运行下载任务，然后 rsync 回本地
+        
+        logger.info(
+            f"Hysteria2 代理信息: {ip_address}:{port} (密码: {password[:4]}***)"
+        )
+        logger.warning(
+            "Aria2 不支持 hysteria2:// 协议，需要在本地运行 hysteria2 客户端转换为 SOCKS5 代理"
+        )
+        
+        # 如果本地已经运行了 hysteria2 客户端（例如监听 127.0.0.1:1080）
+        # 可以通过环境变量或配置文件指定 SOCKS5 地址
+        socks5_proxy = self.settings.__dict__.get("aria2_socks5_proxy")
+        if socks5_proxy:
+            try:
+                aria2_client = get_aria2_client()
+                await aria2_client.set_proxy(socks5_proxy)
+                logger.info(f"Aria2 代理已配置: {socks5_proxy}")
+            except Exception as e:
+                logger.error(f"配置 Aria2 代理失败: {e}")
     
     async def _ensure_aria2_proxy_configured(self):
         """确保 Aria2 代理已配置"""
