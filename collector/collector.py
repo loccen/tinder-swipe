@@ -86,7 +86,7 @@ class TelegramCollector:
     
     # 链接匹配正则
     MAGNET_PATTERN = re.compile(r'magnet:\?xt=urn:[a-z0-9]+:[a-zA-Z0-9]{32,}[^\s]*', re.IGNORECASE)
-    PIKPAK_PATTERN = re.compile(r'https?://mypikpak\.com/s/[A-Za-z0-9]+', re.IGNORECASE)
+    PIKPAK_PATTERN = re.compile(r'https?://mypikpak\.com/s/[A-Za-z0-9_-]+', re.IGNORECASE)
     
     # 时间窗口 (秒)
     ASSOCIATION_WINDOW = 30
