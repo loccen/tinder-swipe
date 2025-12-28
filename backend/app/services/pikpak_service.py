@@ -172,7 +172,9 @@ class PikPakService:
         """
         client = await self._ensure_client()
         try:
-            info = await client.get_file_info(file_id)
+            # PikPakApi.get_download_url 返回文件详情，包含 web_content_link 和 medias
+            info = await client.get_download_url(file_id)
+            
             # 优先使用 web_content_link
             url = info.get("web_content_link")
             if not url:
