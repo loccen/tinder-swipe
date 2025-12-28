@@ -82,19 +82,25 @@ class PikPakService:
             file_id: 文件或文件夹 ID
             
         Returns:
-            文件信息
         """
         client = await self._ensure_client()
         try:
+            logger.info(f"开始查找文件: file_id={file_id}")
+            
             # PikPak 转存的文件默认保存在 "Pack From Shared" 目录
             # 先找到该目录的 ID
             root_result = await client.file_list(parent_id="", size=100)
             root_files = root_result.get("files", [])
             
+            logger.info(f"根目录文件数量: {len(root_files)}")
+            for f in root_files:
+                logger.debug(f"根目录文件: id={f.get('id')}, name={f.get('name')}, kind={f.get('kind')}")
+            
             pack_folder_id = None
             for f in root_files:
                 if f.get("name") == "Pack From Shared" and f.get("kind") == "drive#folder":
                     pack_folder_id = f.get("id")
+                    logger.info(f"找到 Pack From Shared 目录: id={pack_folder_id}")
                     break
                 # 直接匹配
                 if f.get("id") == file_id:
@@ -106,10 +112,16 @@ class PikPakService:
                 pack_result = await client.file_list(parent_id=pack_folder_id, size=500)
                 pack_files = pack_result.get("files", [])
                 
+                logger.info(f"Pack From Shared 目录文件数量: {len(pack_files)}")
                 for f in pack_files:
+                    logger.info(f"Pack文件: id={f.get('id')}, name={f.get('name')}, kind={f.get('kind')}, size={f.get('size')}")
                     if f.get("id") == file_id:
-                        logger.info(f"在 Pack From Shared 目录找到文件: {f}")
+                        logger.info(f"在 Pack From Shared 目录找到目标文件!")
                         return f
+                
+                logger.warning(f"在 Pack From Shared 目录未找到 file_id={file_id}")
+            else:
+                logger.warning("未找到 Pack From Shared 目录")
             
             # 如果还是找不到，尝试直接获取下载链接来验证文件是否存在
             try:
@@ -118,7 +130,7 @@ class PikPakService:
                 if isinstance(download_info, dict):
                     return download_info
             except Exception as download_err:
-                logger.debug(f"获取下载链接失败: {download_err}")
+                logger.warning(f"获取下载链接失败: {download_err}")
             
             raise PikPakError(f"未找到文件: {file_id}")
         except PikPakError:
@@ -226,8 +238,10 @@ class PikPakService:
         """
         转存分享链接内容到自己的网盘
         
+        注意: PikPak 转存后会生成新的文件 ID，不能使用分享中的原始 ID
+        
         Returns:
-            转存后的文件/文件夹 ID 列表
+            转存后的文件/文件夹 ID 列表 (我的网盘中的 ID)
         """
         logger.info(f"开始转存分享链接: {share_url}")
         
@@ -266,21 +280,76 @@ class PikPakService:
                 )
                 raise PikPakError("分享链接内容为空或已失效 (files 为空)")
             
-            file_ids = [f["id"] for f in files]
-            logger.info(f"准备转存 {len(file_ids)} 个文件: {file_ids}")
+            # 保存原始文件名用于后续查找
+            original_names = [f.get("name") for f in files]
+            original_ids = [f["id"] for f in files]
+            logger.info(f"准备转存 {len(original_ids)} 个文件: {original_names}")
             
             # 执行转存
-            result = await client.restore(share_id, pass_code_token, file_ids)
+            result = await client.restore(share_id, pass_code_token, original_ids)
             logger.info(f"转存结果: {result}")
             
-            # 转存通常返回任务 ID，需要稍等片刻让文件出现在网盘
-            # 此处返回 file_id 列表
-            return file_ids
+            # 等待一小段时间，让文件出现在网盘
+            import asyncio
+            await asyncio.sleep(2)
+            
+            # 转存后需要在 Pack From Shared 目录查找实际的文件 ID
+            # 因为转存会生成新的 ID
+            actual_ids = await self._find_transferred_files(original_names)
+            logger.info(f"转存后实际文件 ID: {actual_ids}")
+            
+            if not actual_ids:
+                # 如果找不到，可能还在处理中，返回空列表让后续轮询重试
+                logger.warning("转存后未能立即找到文件，可能还在处理中")
+                # 但仍然返回一个标记，表示转存已触发
+                return []
+            
+            return actual_ids
         except PikPakError:
             raise
         except Exception as e:
             logger.error(f"转存分享失败: {e}", exc_info=True)
             raise PikPakError(f"转存分享失败: {str(e)}")
+    
+    async def _find_transferred_files(self, names: List[str]) -> List[str]:
+        """
+        在 Pack From Shared 目录查找转存后的文件
+        
+        Args:
+            names: 要查找的文件名列表
+            
+        Returns:
+            找到的文件 ID 列表
+        """
+        client = await self._ensure_client()
+        
+        # 先找到 Pack From Shared 目录
+        root_result = await client.file_list(parent_id="", size=100)
+        root_files = root_result.get("files", [])
+        
+        pack_folder_id = None
+        for f in root_files:
+            if f.get("name") == "Pack From Shared" and f.get("kind") == "drive#folder":
+                pack_folder_id = f.get("id")
+                break
+        
+        if not pack_folder_id:
+            logger.warning("未找到 Pack From Shared 目录")
+            return []
+        
+        # 在目录下查找匹配的文件
+        pack_result = await client.file_list(parent_id=pack_folder_id, size=500)
+        pack_files = pack_result.get("files", [])
+        
+        found_ids = []
+        for name in names:
+            for f in pack_files:
+                if f.get("name") == name:
+                    found_ids.append(f.get("id"))
+                    logger.info(f"找到转存后的文件: name={name}, id={f.get('id')}")
+                    break
+        
+        return found_ids
 
     @staticmethod
     def parse_share_url(url: str) -> Optional[str]:
