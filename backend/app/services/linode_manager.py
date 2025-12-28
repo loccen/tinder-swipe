@@ -18,10 +18,11 @@ class LinodeManager:
     
     BASE_URL = "https://api.linode.com/v4"
     
-    # SOCKS5 代理 cloud-init 脚本模板 (使用 Dante)
+    # 双代理 cloud-init 脚本模板 (SOCKS5: Dante + HTTP: Tinyproxy)
     CLOUD_INIT_TEMPLATE = """#cloud-config
 packages:
   - dante-server
+  - tinyproxy
   - ufw
 
 runcmd:
@@ -29,8 +30,9 @@ runcmd:
   - |
     IFACE=$(ip route | grep default | awk '{{print $5}}' | head -1)
     
+    # ===== SOCKS5 代理 (Dante) =====
     # 写入 Dante 配置文件
-    cat > /etc/danted.conf << EOF
+    cat > /etc/danted.conf <<EOF
     logoutput: syslog
     
     internal: 0.0.0.0 port = {port}
@@ -56,6 +58,31 @@ runcmd:
     }}
     EOF
     
+    # ===== HTTP 代理 (Tinyproxy) =====
+    # 写入 Tinyproxy 配置文件
+    cat > /etc/tinyproxy/tinyproxy.conf <<EOF
+    User tinyproxy
+    Group tinyproxy
+    Port {http_port}
+    Timeout 600
+    DefaultErrorFile "/usr/share/tinyproxy/default.html"
+    StatFile "/usr/share/tinyproxy/stats.html"
+    LogFile "/var/log/tinyproxy/tinyproxy.log"
+    LogLevel Info
+    PidFile "/run/tinyproxy/tinyproxy.pid"
+    MaxClients 100
+    MinSpareServers 5
+    MaxSpareServers 20
+    StartServers 10
+    MaxRequestsPerChild 0
+    Allow 0.0.0.0/0
+    ViaProxyName "tinyproxy"
+    DisableViaHeader No
+    
+    # 基础认证 (使用 htpasswd)
+    BasicAuth {username} {password}
+    EOF
+    
   # 创建代理认证用户
   - useradd -r -s /bin/false {username} || true
   - echo "{username}:{password}" | chpasswd
@@ -63,13 +90,16 @@ runcmd:
   # 启动服务
   - systemctl enable danted
   - systemctl start danted
+  - systemctl enable tinyproxy
+  - systemctl start tinyproxy
   
   # 配置防火墙
   - ufw allow {port}/tcp
+  - ufw allow {http_port}/tcp
   - ufw --force enable
   
   # 标记就绪
-  - touch /var/run/socks5_ready
+  - touch /var/run/proxy_ready
 """
     
     def __init__(self, token: Optional[str] = None):
@@ -112,9 +142,13 @@ runcmd:
         socks5_username = socks5_username or settings.socks5_username
         socks5_password = socks5_password or settings.socks5_password
         
+        # HTTP 代理端口 = SOCKS5 端口 + 7000
+        http_port = socks5_port + 7000
+        
         # 生成 cloud-init 脚本
         user_data = self.CLOUD_INIT_TEMPLATE.format(
             port=socks5_port,
+            http_port=http_port,
             username=socks5_username,
             password=socks5_password
         )

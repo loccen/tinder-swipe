@@ -681,21 +681,29 @@ class Orchestrator:
         password: str
     ):
         """
-        配置 Aria2 使用远程 SOCKS5 代理
+        配置 Aria2 使用远程 HTTP 代理
         
         Args:
             ip_address: 代理服务器 IP
-            port: SOCKS5 端口
+            port: SOCKS5 端口基础值 (HTTP 端口 = port + 7000)
             username: 认证用户名
             password: 认证密码
         """
-        # 构建 SOCKS5 代理 URL (带认证)
-        proxy_url = f"socks5://{username}:{password}@{ip_address}:{port}"
+        from urllib.parse import quote
+        
+        # HTTP 代理端口 = SOCKS5 端口 + 7000
+        http_port = port + 7000
+        
+        # 对密码进行 URL 编码，防止特殊字符导致解析失败
+        encoded_password = quote(password, safe='')
+        
+        # 构建 HTTP 代理 URL (带认证)
+        proxy_url = f"http://{username}:{encoded_password}@{ip_address}:{http_port}"
         
         try:
             aria2_client = get_aria2_client()
             await aria2_client.set_proxy(proxy_url)
-            logger.info(f"Aria2 代理已配置: socks5://{username}:***@{ip_address}:{port}")
+            logger.info(f"Aria2 HTTP 代理已配置: http://{username}:***@{ip_address}:{http_port}")
         except Exception as e:
             logger.error(f"配置 Aria2 代理失败: {e}")
     
