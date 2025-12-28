@@ -238,10 +238,8 @@ class PikPakService:
         """
         转存分享链接内容到自己的网盘
         
-        注意: PikPak 转存后会生成新的文件 ID，不能使用分享中的原始 ID
-        
         Returns:
-            转存后的文件/文件夹 ID 列表 (我的网盘中的 ID)
+            转存后的文件/文件夹 ID 列表
         """
         logger.info(f"开始转存分享链接: {share_url}")
         
@@ -255,9 +253,6 @@ class PikPakService:
         try:
             # 获取分享信息 (返回 files 和 pass_code_token)
             share_info = await client.get_share_info(share_url)
-            
-            # 详细日志
-            logger.debug(f"分享信息响应: {share_info}")
             
             pass_code_token = share_info.get("pass_code_token", "")
             files = share_info.get("files", [])
@@ -273,38 +268,26 @@ class PikPakService:
                 raise PikPakError(f"分享链接状态异常: {share_status}")
             
             if not files:
-                logger.error(
-                    f"分享文件列表为空, share_id={share_id}, "
-                    f"file_info字段: {share_info.get('file_info')}, "
-                    f"next_page_token: {share_info.get('next_page_token')}"
-                )
                 raise PikPakError("分享链接内容为空或已失效 (files 为空)")
             
-            # 保存原始文件名用于后续查找
-            original_names = [f.get("name") for f in files]
+            # 记录分享中的原始文件信息
+            for f in files:
+                logger.info(f"分享文件: id={f.get('id')}, name={f.get('name')}, kind={f.get('kind')}")
+            
             original_ids = [f["id"] for f in files]
-            logger.info(f"准备转存 {len(original_ids)} 个文件: {original_names}")
             
             # 执行转存
             result = await client.restore(share_id, pass_code_token, original_ids)
-            logger.info(f"转存结果: {result}")
             
-            # 等待一小段时间，让文件出现在网盘
-            import asyncio
-            await asyncio.sleep(2)
+            # 详细打印 restore 返回值，分析是否包含新的文件 ID
+            logger.info(f"=== restore 返回值类型: {type(result)} ===")
+            logger.info(f"=== restore 返回值: {result} ===")
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    logger.info(f"  restore['{key}']: {value}")
             
-            # 转存后需要在 Pack From Shared 目录查找实际的文件 ID
-            # 因为转存会生成新的 ID
-            actual_ids = await self._find_transferred_files(original_names)
-            logger.info(f"转存后实际文件 ID: {actual_ids}")
-            
-            if not actual_ids:
-                # 如果找不到，可能还在处理中，返回空列表让后续轮询重试
-                logger.warning("转存后未能立即找到文件，可能还在处理中")
-                # 但仍然返回一个标记，表示转存已触发
-                return []
-            
-            return actual_ids
+            # 先返回原始 ID，后续根据 restore 返回值决定如何获取真实 ID
+            return original_ids
         except PikPakError:
             raise
         except Exception as e:
