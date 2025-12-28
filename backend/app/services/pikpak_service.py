@@ -75,6 +75,9 @@ class PikPakService:
         """
         获取文件/文件夹信息
         
+        注意: PikPakApi 没有直接的 get_file_info 方法，
+        我们通过在父目录中查找来获取文件信息。
+        
         Args:
             file_id: 文件或文件夹 ID
             
@@ -83,8 +86,29 @@ class PikPakService:
         """
         client = await self._ensure_client()
         try:
-            result = await client.get_file_info(file_id)
-            return result
+            # 尝试用 file_list 查询，以 file_id 的父目录为参数
+            # 由于我们不知道父目录，先尝试在根目录查找
+            result = await client.file_list(parent_id="", size=500)
+            files = result.get("files", [])
+            
+            for f in files:
+                if f.get("id") == file_id:
+                    logger.info(f"找到文件信息: {f}")
+                    return f
+            
+            # 如果根目录找不到，可能是子目录或转存的文件
+            # 尝试直接获取文件下载链接来验证文件是否存在
+            try:
+                download_info = await client.get_download_url(file_id)
+                logger.info(f"通过下载链接获取文件信息: file_id={file_id}, download_info keys={download_info.keys() if isinstance(download_info, dict) else type(download_info)}")
+                if isinstance(download_info, dict):
+                    return download_info
+            except Exception as download_err:
+                logger.debug(f"获取下载链接失败: {download_err}")
+            
+            raise PikPakError(f"未找到文件: {file_id}")
+        except PikPakError:
+            raise
         except Exception as e:
             raise PikPakError(f"获取文件信息失败: {str(e)}")
     
@@ -282,10 +306,29 @@ class PikPakService:
             True 如果文件已就绪
         """
         try:
+            logger.info(f"检查文件就绪状态: file_id={file_id}")
             file_info = await self.get_file_info(file_id)
+            
             size = int(file_info.get("size", 0))
-            return size > 0
-        except Exception:
+            phase = file_info.get("phase", "")
+            kind = file_info.get("kind", "")
+            name = file_info.get("name", "")
+            
+            logger.info(
+                f"文件信息: file_id={file_id}, name={name}, "
+                f"kind={kind}, size={size}, phase={phase}"
+            )
+            
+            # 如果是文件夹，需要特殊处理
+            if kind == "drive#folder":
+                logger.info(f"文件 {file_id} 是文件夹，视为就绪")
+                return True
+            
+            is_ready = size > 0 and phase == "PHASE_TYPE_COMPLETE"
+            logger.info(f"文件就绪判断: file_id={file_id}, is_ready={is_ready}")
+            return is_ready
+        except Exception as e:
+            logger.error(f"检查文件就绪状态失败: file_id={file_id}, error={e}")
             return False
 
 
