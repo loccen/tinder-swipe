@@ -312,15 +312,23 @@ class Orchestrator:
             task.pikpak_file_id = file_id
         else:
             # PikPak 分享链接：执行转存
-            logger.info(f"任务 {task.id}: 转存分享链接内容...")
-            file_ids = await pikpak_service.transfer_share_content(source_url)
-            if not file_ids:
+            logger.info(f"任务 {task.id}: 转存分享链接内容:{source_url}")
+            # 返回 [(file_name, original_id), ...]
+            transfer_results = await pikpak_service.transfer_share_content(source_url)
+            if not transfer_results:
                 raise Exception("PikPak 转存分享失败: 未返回 file_id")
-            task.pikpak_file_id = file_ids[0]
+            
+            # 取第一个文件
+            file_name, original_id = transfer_results[0]
+            task.pikpak_file_id = original_id  # 暂存原始 ID，is_file_ready 会用文件名匹配
+            task.pikpak_file_name = file_name  # 用于按名查找实际 ID
         
         # 更新状态
         task.status = TaskStatus.PIKPAK_TRANSFERRING.value
-        logger.info(f"任务 {task.id} 已进入 PikPak 转存状态, file_id={task.pikpak_file_id}")
+        logger.info(
+            f"任务 {task.id} 已进入 PikPak 转存状态, "
+            f"file_id={task.pikpak_file_id}, file_name={task.pikpak_file_name}"
+        )
     
     # =========================================================================
     # Aria2 推送任务 (每 30s)
@@ -347,7 +355,7 @@ class Orchestrator:
             if not transferring_tasks:
                 return
             
-            logger.debug(f"检查 {len(transferring_tasks)} 个转存中的任务")
+            logger.info(f"检查 {len(transferring_tasks)} 个转存中的任务")
             
             pikpak_service = get_pikpak_service()
             aria2_client = get_aria2_client()
@@ -358,11 +366,23 @@ class Orchestrator:
                         logger.warning(f"任务 {task.id} 无 pikpak_file_id，跳过")
                         continue
                     
-                    # 检查文件是否就绪
-                    is_ready = await pikpak_service.is_file_ready(task.pikpak_file_id)
+                    # 检查文件是否就绪 (传入文件名用于按名查找)
+                    is_ready, actual_file_id = await pikpak_service.is_file_ready(
+                        task.pikpak_file_id,
+                        task.pikpak_file_name
+                    )
+                    
                     if not is_ready:
-                        logger.debug(f"任务 {task.id} PikPak 文件尚未就绪")
+                        logger.info(f"任务 {task.id} PikPak 文件尚未就绪")
                         continue
+                    
+                    # 如果通过文件名找到了实际 ID，更新任务
+                    if actual_file_id and actual_file_id != task.pikpak_file_id:
+                        logger.info(
+                            f"任务 {task.id} 更新 pikpak_file_id: "
+                            f"{task.pikpak_file_id} -> {actual_file_id}"
+                        )
+                        task.pikpak_file_id = actual_file_id
                     
                     # 获取视频文件直链并推送到 Aria2
                     await self._push_to_aria2(db, task, pikpak_service, aria2_client)

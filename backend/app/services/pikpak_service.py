@@ -275,19 +275,15 @@ class PikPakService:
                 logger.info(f"分享文件: id={f.get('id')}, name={f.get('name')}, kind={f.get('kind')}")
             
             original_ids = [f["id"] for f in files]
+            file_names = [f.get("name", "") for f in files]
             
             # 执行转存
             result = await client.restore(share_id, pass_code_token, original_ids)
+            logger.info(f"转存结果: {result}")
             
-            # 详细打印 restore 返回值，分析是否包含新的文件 ID
-            logger.info(f"=== restore 返回值类型: {type(result)} ===")
-            logger.info(f"=== restore 返回值: {result} ===")
-            if isinstance(result, dict):
-                for key, value in result.items():
-                    logger.info(f"  restore['{key}']: {value}")
-            
-            # 先返回原始 ID，后续根据 restore 返回值决定如何获取真实 ID
-            return original_ids
+            # 返回 (文件名, 原始ID) 元组列表
+            # 后续需要用文件名在 Pack From Shared 目录匹配获取真实 ID
+            return list(zip(file_names, original_ids))
         except PikPakError:
             raise
         except Exception as e:
@@ -361,41 +357,78 @@ class PikPakService:
         # PikPakApi 没有显式的关闭方法
         self._client = None
     
-    async def is_file_ready(self, file_id: str) -> bool:
+    async def is_file_ready(
+        self, 
+        file_id: str, 
+        file_name: Optional[str] = None
+    ) -> tuple[bool, Optional[str]]:
         """
         检查文件是否已就绪（存在且非 0 字节）
         
+        如果按 file_id 找不到，会尝试用 file_name 在 Pack From Shared 目录查找。
+        
         Args:
             file_id: 文件 ID
+            file_name: 可选的文件名，用于按名查找
             
         Returns:
-            True 如果文件已就绪
+            (is_ready, actual_file_id) - 是否就绪，以及实际的文件 ID (如果通过文件名找到)
         """
         try:
-            logger.info(f"检查文件就绪状态: file_id={file_id}")
-            file_info = await self.get_file_info(file_id)
+            logger.info(f"检查文件就绪状态: file_id={file_id}, file_name={file_name}")
             
-            size = int(file_info.get("size", 0))
-            phase = file_info.get("phase", "")
-            kind = file_info.get("kind", "")
-            name = file_info.get("name", "")
+            # 先尝试按 ID 查找
+            try:
+                file_info = await self.get_file_info(file_id)
+                return self._check_file_ready(file_info, file_id)
+            except PikPakError as e:
+                logger.info(f"按 ID 查找失败: {e}")
             
-            logger.info(
-                f"文件信息: file_id={file_id}, name={name}, "
-                f"kind={kind}, size={size}, phase={phase}"
-            )
+            # 如果有文件名，尝试按名查找
+            if file_name:
+                logger.info(f"尝试按文件名查找: {file_name}")
+                found_ids = await self._find_transferred_files([file_name])
+                if found_ids:
+                    actual_id = found_ids[0]
+                    logger.info(f"按文件名找到实际 ID: {file_name} -> {actual_id}")
+                    
+                    # 再次检查实际文件的就绪状态
+                    try:
+                        file_info = await self.get_file_info(actual_id)
+                        is_ready, _ = self._check_file_ready(file_info, actual_id)
+                        return (is_ready, actual_id)
+                    except PikPakError:
+                        pass
             
-            # 如果是文件夹，需要特殊处理
-            if kind == "drive#folder":
-                logger.info(f"文件 {file_id} 是文件夹，视为就绪")
-                return True
-            
-            is_ready = size > 0 and phase == "PHASE_TYPE_COMPLETE"
-            logger.info(f"文件就绪判断: file_id={file_id}, is_ready={is_ready}")
-            return is_ready
+            return (False, None)
         except Exception as e:
             logger.error(f"检查文件就绪状态失败: file_id={file_id}, error={e}")
-            return False
+            return (False, None)
+    
+    def _check_file_ready(
+        self, 
+        file_info: Dict[str, Any], 
+        file_id: str
+    ) -> tuple[bool, Optional[str]]:
+        """检查文件信息判断是否就绪"""
+        size = int(file_info.get("size", 0))
+        phase = file_info.get("phase", "")
+        kind = file_info.get("kind", "")
+        name = file_info.get("name", "")
+        
+        logger.info(
+            f"文件信息: file_id={file_id}, name={name}, "
+            f"kind={kind}, size={size}, phase={phase}"
+        )
+        
+        # 如果是文件夹，视为就绪
+        if kind == "drive#folder":
+            logger.info(f"文件 {file_id} 是文件夹，视为就绪")
+            return (True, file_id)
+        
+        is_ready = size > 0 and phase == "PHASE_TYPE_COMPLETE"
+        logger.info(f"文件就绪判断: file_id={file_id}, is_ready={is_ready}")
+        return (is_ready, file_id)
 
 
 class PikPakError(Exception):

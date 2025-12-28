@@ -58,6 +58,7 @@ class Task(Base, TimestampMixin):
     
     # 下载详情
     pikpak_file_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    pikpak_file_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)  # 用于按名查找
     aria2_gids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON 数组存储多个 GID
     download_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

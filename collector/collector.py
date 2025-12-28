@@ -393,10 +393,20 @@ class TelegramCollector:
     
     def _extract_urls(self, text: str) -> List[str]:
         """从文本中提取资源链接"""
+        # 调试：打印原始文本的十六进制表示，检查特殊字符
+        if "mypikpak.com" in text:
+            logger.info(f"=== 原始文本 (repr): {repr(text)} ===")
+            logger.info(f"=== 原始文本长度: {len(text)} 字符 ===")
+        
         urls = []
         magnets = self.MAGNET_PATTERN.findall(text)
         urls.extend(magnets)
         pikpaks = self.PIKPAK_PATTERN.findall(text)
+        
+        # 调试：打印匹配结果
+        if pikpaks:
+            logger.info(f"=== PikPak URL 匹配结果: {pikpaks} ===")
+        
         urls.extend(pikpaks)
         return list(set(urls))
     
