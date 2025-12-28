@@ -192,27 +192,33 @@ class PikPakService:
             转存后的文件/文件夹 ID 列表
         """
         logger.info(f"开始转存分享链接: {share_url}")
+        
+        # 从 URL 解析 share_id
+        share_id = self.parse_share_url(share_url)
+        if not share_id:
+            raise PikPakError(f"无法从 URL 解析 share_id: {share_url}")
+        logger.info(f"从 URL 解析出 share_id: {share_id}")
+        
         client = await self._ensure_client()
         try:
-            # 获取分享信息
+            # 获取分享信息 (返回 files 和 pass_code_token)
             share_info = await client.get_share_info(share_url)
             
             # 详细日志
             logger.debug(f"分享信息响应: {share_info}")
             
-            share_id = share_info.get("share_id")
-            pass_code_token = share_info.get("pass_code_token")
+            pass_code_token = share_info.get("pass_code_token", "")
             files = share_info.get("files", [])
+            share_status = share_info.get("share_status", "")
             
             logger.info(
-                f"分享信息: share_id={share_id}, "
+                f"分享信息: share_id={share_id}, status={share_status}, "
                 f"pass_code_token={pass_code_token[:8] if pass_code_token else 'None'}..., "
                 f"文件数量={len(files)}"
             )
             
-            if not share_id:
-                logger.error(f"分享 ID 为空, 响应: {share_info}")
-                raise PikPakError("分享链接无效或已失效 (share_id 为空)")
+            if share_status != "OK":
+                raise PikPakError(f"分享链接状态异常: {share_status}")
             
             if not files:
                 logger.error(
@@ -249,8 +255,8 @@ class PikPakService:
         Returns:
             分享 ID 或 None
         """
-        # https://mypikpak.com/s/XXXX
-        match = re.search(r"mypikpak\.com/s/([A-Za-z0-9]+)", url)
+        # https://mypikpak.com/s/XXXX 或 https://mypikpak.com/s/XXX_YYY
+        match = re.search(r"mypikpak\.com/s/([A-Za-z0-9_-]+)", url)
         if match:
             return match.group(1)
         return None
