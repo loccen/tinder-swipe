@@ -29,7 +29,7 @@ packages:
 runcmd:
   # 下载并安装 Hysteria2 (增加重试)
   - |
-    for i in {1..5}; do
+    for i in {{1..5}}; do
       wget -qO /tmp/hysteria https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 && break || sleep 5
     done
   - chmod +x /tmp/hysteria
