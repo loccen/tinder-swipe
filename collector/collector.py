@@ -25,24 +25,33 @@ import httpx
 def setup_logging(log_level=logging.INFO):
     log_format = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s - %(message)s"
     
-    # 获取环境变量
+    # 获取环境变量或使用默认 Docker 路径
     log_dir = Path(os.getenv("LOG_DIR", "/data/logs"))
-    log_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError):
+        # 如果无法创建目录（如 macOS 本地运行环境），回退到当前目录下的 logs
+        log_dir = Path(__file__).parent / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+    
     log_file = log_dir / "collector.log"
     
-    # 根日志配置
+    # 使用 handlers 列表配置，避免 basicConfig 的多次调用冲突
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+        logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding="utf-8"
+        )
+    ]
+    
+    # 配置根日志
     logging.basicConfig(
         level=log_level,
         format=log_format,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.handlers.RotatingFileHandler(
-                log_file,
-                maxBytes=10 * 1024 * 1024,  # 10MB
-                backupCount=5,
-                encoding="utf-8"
-            )
-        ]
+        handlers=handlers
     )
     return logging.getLogger("collector")
 

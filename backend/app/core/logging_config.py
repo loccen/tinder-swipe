@@ -16,9 +16,10 @@ def setup_logging(name: str = "backend", level=logging.INFO):
     log_dir = Path(os.getenv("LOG_DIR", "/data/logs"))
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        # 如果无法创建目录（如权限问题），回退到当前目录
-        log_dir = Path("./logs")
+    except (OSError, PermissionError):
+        # 如果无法创建目录（如权限问题或 macOS 本地运行），回退到项目根目录下的 logs
+        # app/core/logging_config.py -> app/core -> app -> backend -> logs
+        log_dir = Path(__file__).parent.parent.parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         
     log_file = log_dir / f"{name}.log"
