@@ -136,7 +136,8 @@ class Orchestrator:
                             local_linode.socks5_port,
                             local_linode.socks5_username,
                             local_linode.socks5_password
-                        )\n            else:
+                        )
+            else:
                 logger.info("未发现远程 swipe 实例")
                 
                 # 清理本地可能的残留记录
