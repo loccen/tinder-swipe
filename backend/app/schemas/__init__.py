@@ -34,7 +34,7 @@ class TaskResponse(TaskBase):
     telegram_chat_id: int
     status: str
     batch_id: Optional[int] = None
-    aria2_gid: Optional[str] = None
+    aria2_gids: Optional[str] = None
     error_message: Optional[str] = None
     created_at: datetime
     confirmed_at: Optional[datetime] = None
@@ -58,7 +58,7 @@ class TaskResponse(TaskBase):
             preview_images=task.get_preview_images_list(),
             status=task.status,
             batch_id=task.batch_id,
-            aria2_gid=task.aria2_gid,
+            aria2_gids=task.aria2_gids,
             error_message=task.error_message,
             created_at=task.created_at,
             confirmed_at=task.confirmed_at,
@@ -110,7 +110,7 @@ class LinodeResponse(BaseModel):
     region: str
     ip_address: Optional[str] = None
     status: str
-    hysteria_port: int
+    socks5_port: int
     total_minutes: int
     hourly_cost: float
     created_at: datetime
