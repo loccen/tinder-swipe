@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     linode_region: str = Field(default="ap-northeast", alias="LINODE_REGION")
     linode_type: str = Field(default="g6-nanode-1", alias="LINODE_TYPE")
     
+    # SOCKS5 代理配置 (固定配置，所有实例使用相同的凭据)
+    socks5_port: int = Field(default=1080, alias="SOCKS5_PORT")
+    socks5_username: str = Field(default="proxy", alias="SOCKS5_USERNAME")
+    socks5_password: str = Field(default="swipe2024", alias="SOCKS5_PASSWORD")
+    
     # Aria2
     aria2_rpc_url: str = Field(default="http://localhost:6800/jsonrpc", alias="ARIA2_RPC_URL")
     aria2_rpc_secret: Optional[str] = Field(default=None, alias="ARIA2_RPC_SECRET")

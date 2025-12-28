@@ -89,8 +89,8 @@ runcmd:
     async def create_instance(
         self,
         label: str,
-        socks5_port: int = 1080,
-        socks5_username: str = "proxy",
+        socks5_port: Optional[int] = None,
+        socks5_username: Optional[str] = None,
         socks5_password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -98,16 +98,19 @@ runcmd:
         
         Args:
             label: 实例标签
-            socks5_port: SOCKS5 代理端口
-            socks5_username: SOCKS5 认证用户名
-            socks5_password: SOCKS5 认证密码 (不指定则自动生成)
+            socks5_port: SOCKS5 代理端口 (默认使用配置)
+            socks5_username: SOCKS5 认证用户名 (默认使用配置)
+            socks5_password: SOCKS5 认证密码 (默认使用配置)
             
         Returns:
             实例信息 (包含 id, ip_address, socks5_* 等)
         """
-        # 生成随机密码
-        if not socks5_password:
-            socks5_password = secrets.token_urlsafe(16)
+        settings = get_settings()
+        
+        # 使用配置中的固定值作为默认
+        socks5_port = socks5_port or settings.socks5_port
+        socks5_username = socks5_username or settings.socks5_username
+        socks5_password = socks5_password or settings.socks5_password
         
         # 生成 cloud-init 脚本
         user_data = self.CLOUD_INIT_TEMPLATE.format(

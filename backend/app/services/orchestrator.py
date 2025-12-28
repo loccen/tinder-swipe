@@ -108,14 +108,19 @@ class Orchestrator:
                     result = await db.execute(stmt)
                     local_linode = result.scalar_one_or_none()
                     
+                    settings = get_settings()
+                    
                     if local_linode is None:
-                        # 远程存在但本地无记录，创建记录
+                        # 远程存在但本地无记录，创建记录 (使用配置中的固定 SOCKS5 凭据)
                         local_linode = Linode(
                             linode_id=linode_id,
                             label=self.SWIPE_INSTANCE_LABEL,
                             region=remote_instance.get("region", "unknown"),
                             ip_address=ip_address,
                             status=LinodeStatus.RUNNING.value if status == "running" else LinodeStatus.PROVISIONING.value,
+                            socks5_port=settings.socks5_port,
+                            socks5_username=settings.socks5_username,
+                            socks5_password=settings.socks5_password,
                         )
                         db.add(local_linode)
                         logger.info(f"已创建本地 Linode 记录: {linode_id}")
@@ -129,13 +134,13 @@ class Orchestrator:
                     
                     await db.commit()
                     
-                    # 如果实例正在运行，配置 Aria2 代理
-                    if status == "running" and ip_address and local_linode.socks5_password:
+                    # 如果实例正在运行，使用配置中的凭据配置 Aria2 代理
+                    if status == "running" and ip_address:
                         await self._configure_aria2_proxy(
                             ip_address, 
-                            local_linode.socks5_port,
-                            local_linode.socks5_username,
-                            local_linode.socks5_password
+                            settings.socks5_port,
+                            settings.socks5_username,
+                            settings.socks5_password
                         )
             else:
                 logger.info("未发现远程 swipe 实例")
