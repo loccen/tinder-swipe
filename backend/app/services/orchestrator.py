@@ -2,10 +2,10 @@
 编排引擎 (Orchestrator) - 状态机驱动的定时任务模型
 
 核心职责：
-1. 任务 A: 任务确认与实例检查 (每 30s)
-2. 任务 B: PikPak 到 Aria2 推送 (每 30s)
-3. 任务 C: 下载监控与状态更新 (每 30s)
-4. 任务 D: 自动销毁与清理 (每 1min)
+1. 确认转存任务: 处理 CONFIRMED 任务，创建实例，触发 PikPak 转存
+2. Aria2 推送任务: 检查 PikPak 就绪状态，推送到 Aria2
+3. 下载监控任务: 监控 Aria2 下载进度，更新完成状态
+4. 自动清理任务: 系统空闲后销毁实例
 
 使用固定标签 `swipe` 的单例 Linode 实例管理模式
 """
@@ -53,10 +53,10 @@ class Orchestrator:
         
         # 启动 4 个独立定时任务
         self._tasks = [
-            asyncio.create_task(self._task_a_loop()),  # 任务确认与实例检查
-            asyncio.create_task(self._task_b_loop()),  # PikPak 到 Aria2 推送
-            asyncio.create_task(self._task_c_loop()),  # 下载监控与状态更新
-            asyncio.create_task(self._task_d_loop()),  # 自动销毁与清理
+            asyncio.create_task(self._confirm_and_provision_loop()),  # 确认转存 (30s)
+            asyncio.create_task(self._push_to_aria2_loop()),          # Aria2 推送 (30s)
+            asyncio.create_task(self._monitor_downloads_loop()),       # 下载监控 (30s)
+            asyncio.create_task(self._auto_cleanup_loop()),            # 自动清理 (60s)
         ]
         
         logger.info("4 个定时任务已启动")
@@ -159,16 +159,16 @@ class Orchestrator:
             logger.error(f"同步实例状态失败: {e}", exc_info=True)
     
     # =========================================================================
-    # 任务 A: 任务确认与实例检查 (每 30s)
+    # 确认转存任务 (每 30s)
     # =========================================================================
     
-    async def _task_a_loop(self):
-        """任务 A 循环: 任务确认与实例检查"""
+    async def _confirm_and_provision_loop(self):
+        """确认转存任务循环: 处理 CONFIRMED 任务，创建实例，触发转存"""
         while self._running:
             try:
                 await self._process_confirmed_tasks()
             except Exception as e:
-                logger.error(f"任务 A 异常: {e}", exc_info=True)
+                logger.error(f"确认转存任务异常: {e}", exc_info=True)
             await asyncio.sleep(30)
     
     async def _process_confirmed_tasks(self):
@@ -320,16 +320,16 @@ class Orchestrator:
         logger.info(f"任务 {task.id} 已进入 PikPak 转存状态, file_id={task.pikpak_file_id}")
     
     # =========================================================================
-    # 任务 B: PikPak 到 Aria2 推送 (每 30s)
+    # Aria2 推送任务 (每 30s)
     # =========================================================================
     
-    async def _task_b_loop(self):
-        """任务 B 循环: PikPak 到 Aria2 推送"""
+    async def _push_to_aria2_loop(self):
+        """Aria2 推送任务循环: 检查 PikPak 就绪状态，推送到 Aria2"""
         while self._running:
             try:
                 await self._push_ready_transfers()
             except Exception as e:
-                logger.error(f"任务 B 异常: {e}", exc_info=True)
+                logger.error(f"Aria2 推送任务异常: {e}", exc_info=True)
             await asyncio.sleep(30)
     
     async def _push_ready_transfers(self):
@@ -412,16 +412,16 @@ class Orchestrator:
         logger.info(f"任务 {task.id} 已进入下载状态, {len(gids)} 个文件")
     
     # =========================================================================
-    # 任务 C: 下载监控与状态更新 (每 30s)
+    # 下载监控任务 (每 30s)
     # =========================================================================
     
-    async def _task_c_loop(self):
-        """任务 C 循环: 下载监控与状态更新"""
+    async def _monitor_downloads_loop(self):
+        """下载监控任务循环: 监控 Aria2 进度，更新完成状态"""
         while self._running:
             try:
                 await self._monitor_downloads()
             except Exception as e:
-                logger.error(f"任务 C 异常: {e}", exc_info=True)
+                logger.error(f"下载监控任务异常: {e}", exc_info=True)
             await asyncio.sleep(30)
     
     async def _monitor_downloads(self):
@@ -479,19 +479,19 @@ class Orchestrator:
             await db.commit()
     
     # =========================================================================
-    # 任务 D: 自动销毁与清理 (每 1min)
+    # 自动清理任务 (每 60s)
     # =========================================================================
     
-    async def _task_d_loop(self):
-        """任务 D 循环: 自动销毁与清理"""
+    async def _auto_cleanup_loop(self):
+        """自动清理任务循环: 系统空闲后销毁实例"""
         while self._running:
             try:
-                await self._auto_cleanup()
+                await self._check_and_cleanup()
             except Exception as e:
-                logger.error(f"任务 D 异常: {e}", exc_info=True)
+                logger.error(f"自动清理任务异常: {e}", exc_info=True)
             await asyncio.sleep(60)
     
-    async def _auto_cleanup(self):
+    async def _check_and_cleanup(self):
         """检查是否需要销毁实例"""
         async with get_db_context() as db:
             # 检查是否有活跃任务
