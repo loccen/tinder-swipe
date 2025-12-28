@@ -22,12 +22,31 @@ from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 import httpx
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stdout
-)
-logger = logging.getLogger("collector")
+def setup_logging(log_level=logging.INFO):
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s - %(message)s"
+    
+    # 获取环境变量
+    log_dir = Path(os.getenv("LOG_DIR", "/data/logs"))
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "collector.log"
+    
+    # 根日志配置
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=10 * 1024 * 1024,  # 10MB
+                backupCount=5,
+                encoding="utf-8"
+            )
+        ]
+    )
+    return logging.getLogger("collector")
+
+logger = setup_logging()
 
 
 @dataclass
@@ -139,7 +158,9 @@ class TelegramCollector:
             await self._client.disconnect()
         if self._http_client:
             await self._http_client.aclose()
-        logger.info("采集器已停止")
+        if self._http_client:
+            await self._http_client.aclose()
+        logger.info("Telegram 采集器已停止运行")
     
     async def _reload_channels_loop(self):
         """定期从后端 API 获取频道配置"""
@@ -203,12 +224,16 @@ class TelegramCollector:
                     added = new_channels - self.channels
                     removed = self.channels - new_channels
                     if added:
-                        logger.info(f"新增监听频道: {list(added)}")
+                        logger.info(f"配置更新: 新增监听频道 {list(added)}")
                     if removed:
-                        logger.info(f"移除监听频道: {list(removed)}")
+                        logger.info(f"配置更新: 移除监听频道 {list(removed)}")
                     self.channels = new_channels
+                else:
+                    logger.debug("频道配置未发生变化")
+            else:
+                logger.warning(f"获取频道配置失败, HTTP 状态码: {response.status_code}")
         except Exception as e:
-            logger.debug(f"获取频道配置失败: {e}")
+            logger.error(f"重载频道配置过程发生异常: {str(e)}", exc_info=True)
     
     def _is_monitored_channel(self, chat_id: int, username: Optional[str] = None) -> bool:
         """检查是否是监听的频道"""
@@ -228,9 +253,11 @@ class TelegramCollector:
                 chat = await event.get_chat()
                 username = getattr(chat, 'username', None)
                 if not self._is_monitored_channel(chat_id, username):
+                    logger.debug(f"跳过非监听频道消息: chat_id={chat_id}, username={username}")
                     return
-            except:
+            except Exception as chat_err:
                 if not self._is_monitored_channel(chat_id):
+                    logger.debug(f"获取聊天信息失败且不在直接监听列表，跳过消息: chat_id={chat_id}, error={chat_err}")
                     return
             
             message = event.message
@@ -249,6 +276,9 @@ class TelegramCollector:
             
             # 查找链接
             urls = self._extract_urls(text)
+            if urls:
+                logger.info(f"发现资源消息: chat_id={chat_id}, msg_id={msg_id}, 包含链接数={len(urls)}")
+                logger.debug(f"提取到的链接: {urls}")
             
             # 处理媒体消息 (可能是预览图)
             if message.media:
@@ -264,6 +294,7 @@ class TelegramCollector:
                     self._recent_media[chat_id].append(media)
                     
                     # 尝试关联到已有的待处理资源
+                    logger.info(f"已下载预览图: {image_path}, 准备尝试关联资源...")
                     await self._try_associate_media(chat_id, media)
             
             # 如果有链接，创建资源
@@ -292,7 +323,7 @@ class TelegramCollector:
                     
                     # 存入待处理队列，等待更多关联
                     self._pending_resources[resource_key] = resource
-                    logger.info(f"发现资源: {title[:30]}..., 当前预览图: {len(preview_images)}张")
+                    logger.info(f"任务已加入待处理队列 (等待关联更多分片): {title[:30]}..., 当前预览图: {len(preview_images)}张, key={resource_key}")
                     
         except Exception as e:
             logger.error(f"处理消息异常: {e}")

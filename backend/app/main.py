@@ -14,12 +14,10 @@ from app.core.config import get_settings
 from app.core.database import init_db
 from app.services import get_orchestrator
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+from app.core.logging_config import setup_logging
+
+# 初始化日志
+logger = setup_logging("backend")
 
 
 @asynccontextmanager

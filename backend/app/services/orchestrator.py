@@ -103,13 +103,13 @@ class Orchestrator:
                     if local.status != LinodeStatus.RUNNING.value:
                         local.status = LinodeStatus.ZOMBIE.value
                         logger.warning(
-                            f"发现僵尸实例: {local.linode_id} ({local.ip_address})"
+                            f"发现运行中但状态异常的僵尸实例: {local.linode_id} ({local.ip_address}), 标签={local.label}"
                         )
                 else:
                     # 实例已不存在，更新状态
                     local.status = LinodeStatus.DESTROYED.value
                     local.destroyed_at = datetime.now()
-                    logger.info(f"实例 {local.linode_id} 已不存在，更新状态")
+                    logger.info(f"远程实例已不再存在，标记本地记录为已销毁: {local.linode_id}")
             
             await db.commit()
             
@@ -163,6 +163,7 @@ class Orchestrator:
             if busy_result.scalar() > 0:
                 # 系统繁忙，暂不启动新批次，但可以继续往当前 AGGREGATING 批次加任务
                 if current_batch is None:
+                    logger.debug("系统繁忙且无聚合中批次，跳过本次循环")
                     return
 
             # 3. 统计新生成的 CONFIRMED 任务数
@@ -197,9 +198,11 @@ class Orchestrator:
             
             # 5. 将新产生的任务关联到当前批次
             if pending_count > 0:
+                logger.info(f"发现 {pending_count} 个待关联任务，准备关联到批次 #{current_batch.id}")
                 await self._assign_tasks_to_batch(db, current_batch.id)
                 # 刷新批次对象以获取最新的 task_count
                 await db.refresh(current_batch)
+                logger.debug(f"批次 #{current_batch.id} 当前任务数: {current_batch.task_count}")
             
             # 6. 检查触发条件
             should_trigger = False
@@ -252,6 +255,7 @@ class Orchestrator:
             
             # 创建实例
             label = f"swipe-batch-{batch.id}"
+            logger.info(f"正在为批次 #{batch.id} 创建 Linode 实例, label={label}...")
             instance_data = await linode_manager.create_instance(label=label)
             
             linode_id = instance_data["id"]
@@ -442,6 +446,7 @@ class Orchestrator:
                 
                 # 只记录最后一个 GID (简化)
                 task.aria2_gid = gid
+                logger.debug(f"任务 {task.id} 状态更新为 DOWNLOADING, GID={gid}")
         
         task.status = TaskStatus.DOWNLOADING.value
     
@@ -492,6 +497,7 @@ class Orchestrator:
                             aria2_status = status.get("status")
                             
                             if aria2_status == "complete":
+                                logger.info(f"检测到任务完成: task_id={task.id}, GID={task.aria2_gid}")
                                 task.status = TaskStatus.COMPLETE.value
                                 task.completed_at = datetime.now()
                                 batch.completed_count += 1
