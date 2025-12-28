@@ -14,12 +14,13 @@ from app.models.base import Base, TimestampMixin
 
 class TaskStatus(str, Enum):
     """任务状态枚举"""
-    PENDING = "PENDING"           # 待筛选
-    CONFIRMED = "CONFIRMED"       # 已确认，等待下载
-    IGNORED = "IGNORED"           # 已忽略
-    DOWNLOADING = "DOWNLOADING"   # 下载中
-    COMPLETE = "COMPLETE"         # 下载完成
-    ERROR = "ERROR"               # 下载失败
+    PENDING = "PENDING"                       # 待筛选
+    CONFIRMED = "CONFIRMED"                   # 已确认，等待转存
+    PIKPAK_TRANSFERRING = "PIKPAK_TRANSFERRING"  # PikPak 转存中
+    DOWNLOADING = "DOWNLOADING"               # Aria2 下载中
+    COMPLETE = "COMPLETE"                     # 下载完成
+    IGNORED = "IGNORED"                       # 已忽略
+    ERROR = "ERROR"                           # 下载失败
 
 
 class Task(Base, TimestampMixin):
@@ -57,7 +58,7 @@ class Task(Base, TimestampMixin):
     
     # 下载详情
     pikpak_file_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    aria2_gid: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    aria2_gids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON 数组存储多个 GID
     download_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
@@ -93,6 +94,19 @@ class Task(Base, TimestampMixin):
         self.preview_images = json.dumps(images) if images else None
         # 同时设置第一张图到旧字段，保持兼容
         self.preview_image = images[0] if images else None
+    
+    def get_aria2_gids(self) -> List[str]:
+        """获取 Aria2 GID 列表"""
+        if self.aria2_gids:
+            try:
+                return json.loads(self.aria2_gids)
+            except json.JSONDecodeError:
+                return []
+        return []
+    
+    def set_aria2_gids(self, gids: List[str]):
+        """设置 Aria2 GID 列表"""
+        self.aria2_gids = json.dumps(gids) if gids else None
 
 
 # 延迟导入，避免循环引用

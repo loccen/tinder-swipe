@@ -236,6 +236,23 @@ class PikPakService:
         """关闭客户端"""
         # PikPakApi 没有显式的关闭方法
         self._client = None
+    
+    async def is_file_ready(self, file_id: str) -> bool:
+        """
+        检查文件是否已就绪（存在且非 0 字节）
+        
+        Args:
+            file_id: 文件 ID
+            
+        Returns:
+            True 如果文件已就绪
+        """
+        try:
+            file_info = await self.get_file_info(file_id)
+            size = int(file_info.get("size", 0))
+            return size > 0
+        except Exception:
+            return False
 
 
 class PikPakError(Exception):

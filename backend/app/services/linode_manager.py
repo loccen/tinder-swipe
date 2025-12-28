@@ -207,6 +207,22 @@ runcmd:
         
         return instances
     
+    async def get_instance_by_label(self, label: str) -> Optional[Dict[str, Any]]:
+        """
+        根据标签精确查找实例
+        
+        Args:
+            label: 实例标签
+            
+        Returns:
+            实例信息或 None
+        """
+        instances = await self.list_instances()
+        for instance in instances:
+            if instance.get("label") == label:
+                return instance
+        return None
+    
     async def delete_instance(self, linode_id: int) -> bool:
         """
         删除实例
