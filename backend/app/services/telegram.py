@@ -7,13 +7,10 @@ Telegram 采集引擎
 """
 import asyncio
 import logging
-import logging.handlers
 import os
 import re
-import sys
-import json
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Set, Dict, Union
@@ -22,41 +19,9 @@ from telethon import TelegramClient, events
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 import httpx
 
-# 配置日志
-def setup_logging(log_level=logging.INFO):
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s - %(message)s"
-    
-    # 获取环境变量或使用默认 Docker 路径
-    log_dir = Path(os.getenv("LOG_DIR", "/data/logs"))
-    try:
-        log_dir.mkdir(parents=True, exist_ok=True)
-    except (OSError, PermissionError):
-        # 如果无法创建目录（如 macOS 本地运行环境），回退到当前目录下的 logs
-        log_dir = Path(__file__).parent / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-    
-    log_file = log_dir / "collector.log"
-    
-    # 使用 handlers 列表配置，避免 basicConfig 的多次调用冲突
-    handlers = [
-        logging.StreamHandler(sys.stdout),
-        logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5,
-            encoding="utf-8"
-        )
-    ]
-    
-    # 配置根日志
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        handlers=handlers
-    )
-    return logging.getLogger("collector")
+from app.core.config import get_settings
 
-logger = setup_logging()
+logger = logging.getLogger("backend.telegram")
 
 
 @dataclass
@@ -91,26 +56,17 @@ class TelegramCollector:
     # 时间窗口 (秒)
     ASSOCIATION_WINDOW = 30
     
-    def __init__(
-        self,
-        api_id: int,
-        api_hash: str,
-        phone: str,
-        channels: List[Union[str, int]],
-        session_path: str = "/sessions/collector",
-        previews_path: str = "/data/previews",
-        backend_url: str = "http://backend:8000"
-    ):
-        self.api_id = api_id
-        self.api_hash = api_hash
-        self.phone = phone
-        self.channels = set(channels)
-        self.session_path = session_path
-        self.previews_path = Path(previews_path)
-        self.backend_url = backend_url
+    def __init__(self):
+        settings = get_settings()
+        
+        self.api_id = settings.telegram_api_id
+        self.api_hash = settings.telegram_api_hash
+        self.phone = settings.telegram_phone
+        self.channels = set(settings.telegram_channels)
+        self.session_path = settings.session_path
+        self.previews_path = Path(settings.previews_path)
         
         self._client: Optional[TelegramClient] = None
-        self._http_client: Optional[httpx.AsyncClient] = None
         self._processed_ids: Set[str] = set()
         self._running = False
         self._reload_task: Optional[asyncio.Task] = None
@@ -128,11 +84,6 @@ class TelegramCollector:
     async def start(self):
         """启动采集器"""
         logger.info("正在启动 Telegram 采集器...")
-        
-        self._http_client = httpx.AsyncClient(
-            base_url=self.backend_url,
-            timeout=30.0
-        )
         
         self._client = TelegramClient(
             self.session_path,
@@ -154,8 +105,8 @@ class TelegramCollector:
         self._reload_task = asyncio.create_task(self._reload_channels_loop())
         self._flush_task = asyncio.create_task(self._flush_pending_resources_loop())
         
-        # 保持运行
-        await self._client.run_until_disconnected()
+        # 不保持运行，让 FastAPI 控制生命周期
+        logger.info("Telegram 采集器后台任务已启动")
     
     async def stop(self):
         """停止采集器"""
@@ -166,14 +117,10 @@ class TelegramCollector:
             self._flush_task.cancel()
         if self._client:
             await self._client.disconnect()
-        if self._http_client:
-            await self._http_client.aclose()
-        if self._http_client:
-            await self._http_client.aclose()
         logger.info("Telegram 采集器已停止运行")
     
     async def _reload_channels_loop(self):
-        """定期从后端 API 获取频道配置"""
+        """定期从配置获取频道配置"""
         while self._running:
             try:
                 await asyncio.sleep(30)
@@ -216,32 +163,23 @@ class TelegramCollector:
             ]
     
     async def _reload_channels(self):
-        """从后端 API 获取最新的频道配置"""
+        """从数据库或配置获取最新的频道配置"""
         try:
-            response = await self._http_client.get("/api/settings/channels")
-            if response.status_code == 200:
-                data = response.json()
-                new_channels = set()
-                for ch in data.get("channels", []):
-                    ch_id = ch.get("id") if isinstance(ch, dict) else ch
-                    try:
-                        ch_id = int(ch_id)
-                    except (ValueError, TypeError):
-                        pass
-                    new_channels.add(ch_id)
-                
-                if new_channels != self.channels:
-                    added = new_channels - self.channels
-                    removed = self.channels - new_channels
-                    if added:
-                        logger.info(f"配置更新: 新增监听频道 {list(added)}")
-                    if removed:
-                        logger.info(f"配置更新: 移除监听频道 {list(removed)}")
-                    self.channels = new_channels
-                else:
-                    logger.debug("频道配置未发生变化")
+            # 这里可以从数据库读取配置
+            # 现在暂时保持频道列表不变
+            settings = get_settings()
+            new_channels = set(settings.telegram_channels)
+            
+            if new_channels != self.channels:
+                added = new_channels - self.channels
+                removed = self.channels - new_channels
+                if added:
+                    logger.info(f"配置更新: 新增监听频道 {list(added)}")
+                if removed:
+                    logger.info(f"配置更新: 移除监听频道 {list(removed)}")
+                self.channels = new_channels
             else:
-                logger.warning(f"获取频道配置失败, HTTP 状态码: {response.status_code}")
+                logger.debug("频道配置未发生变化")
         except Exception as e:
             logger.error(f"重载频道配置过程发生异常: {str(e)}", exc_info=True)
     
@@ -336,7 +274,7 @@ class TelegramCollector:
                     logger.info(f"任务已加入待处理队列 (等待关联更多分片): {title[:30]}..., 当前预览图: {len(preview_images)}张, key={resource_key}")
                     
         except Exception as e:
-            logger.error(f"处理消息异常: {e}")
+            logger.error(f"处理消息异常: {e}", exc_info=True)
     
     def _get_recent_images(self, chat_id: int) -> List[str]:
         """获取30秒内的图片"""
@@ -368,8 +306,11 @@ class TelegramCollector:
                         resource.description = media.text
     
     async def _submit_resource(self, resource: PendingResource):
-        """提交资源到后端"""
+        """提交资源到内部 API（直接调用服务层）"""
         try:
+            # 导入服务层，避免循环导入
+            from app.api.internal import create_task_internal
+            
             payload = {
                 "telegram_chat_id": resource.chat_id,
                 "telegram_msg_id": resource.msg_id,
@@ -380,33 +321,19 @@ class TelegramCollector:
                 "preview_images": resource.preview_images
             }
             
-            response = await self._http_client.post(
-                "/api/tasks/internal/create",
-                json=payload
-            )
+            # 直接调用内部函数而非 HTTP 请求
+            await create_task_internal(payload)
+            logger.info(f"任务创建成功: {resource.title[:30]}... (预览图: {len(resource.preview_images)}张)")
             
-            if response.status_code == 200:
-                logger.info(f"任务创建成功: {resource.title[:30]}... (预览图: {len(resource.preview_images)}张)")
-                
         except Exception as e:
-            logger.error(f"创建任务失败: {e}")
+            logger.error(f"创建任务失败: {e}", exc_info=True)
     
     def _extract_urls(self, text: str) -> List[str]:
         """从文本中提取资源链接"""
-        # 调试：打印原始文本的十六进制表示，检查特殊字符
-        if "mypikpak.com" in text:
-            logger.info(f"=== 原始文本 (repr): {repr(text)} ===")
-            logger.info(f"=== 原始文本长度: {len(text)} 字符 ===")
-        
         urls = []
         magnets = self.MAGNET_PATTERN.findall(text)
         urls.extend(magnets)
         pikpaks = self.PIKPAK_PATTERN.findall(text)
-        
-        # 调试：打印匹配结果
-        if pikpaks:
-            logger.info(f"=== PikPak URL 匹配结果: {pikpaks} ===")
-        
         urls.extend(pikpaks)
         return list(set(urls))
     
@@ -500,40 +427,13 @@ class TelegramCollector:
             return None
 
 
-async def main():
-    """主入口"""
-    api_id = int(os.getenv("TELEGRAM_API_ID", "0"))
-    api_hash = os.getenv("TELEGRAM_API_HASH", "")
-    phone = os.getenv("TELEGRAM_PHONE", "")
-    channels_str = os.getenv("TELEGRAM_CHANNELS", "[]")
-    
-    if not api_id or not api_hash or not phone:
-        logger.error("缺少 Telegram 配置，请设置环境变量")
-        sys.exit(1)
-    
-    try:
-        channels = json.loads(channels_str)
-    except json.JSONDecodeError:
-        channels = []
-    
-    if not channels:
-        logger.warning("未配置初始监听频道，将从后端 API 获取")
-    
-    collector = TelegramCollector(
-        api_id=api_id,
-        api_hash=api_hash,
-        phone=phone,
-        channels=channels,
-        session_path=os.getenv("SESSION_PATH", "/sessions/collector"),
-        previews_path=os.getenv("PREVIEWS_PATH", "/data/previews"),
-        backend_url=os.getenv("BACKEND_URL", "http://backend:8000")
-    )
-    
-    try:
-        await collector.start()
-    except KeyboardInterrupt:
-        await collector.stop()
+# 全局单例
+_collector: Optional[TelegramCollector] = None
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def get_telegram_collector() -> TelegramCollector:
+    """获取 Telegram 采集器单例"""
+    global _collector
+    if _collector is None:
+        _collector = TelegramCollector()
+    return _collector

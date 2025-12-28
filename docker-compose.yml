@@ -2,92 +2,49 @@ version: "3.8"
 
 services:
   # ============================================================
-  # 后端 API + 编排引擎
+  # 单容器应用 (Backend + Collector + Frontend)
   # ============================================================
-  backend:
-    build: ./backend
-    container_name: swipe-backend
-    restart: unless-stopped
-    volumes:
-      - ./data:/data
-    environment:
-      - DATABASE_PATH=/data/swipe.db
-      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
-      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
-      - TELEGRAM_PHONE=${TELEGRAM_PHONE}
-      - TELEGRAM_CHANNELS=${TELEGRAM_CHANNELS}
-      - PIKPAK_USERNAME=${PIKPAK_USERNAME}
-      - PIKPAK_PASSWORD=${PIKPAK_PASSWORD}
-      - LINODE_TOKEN=${LINODE_TOKEN}
-      - LINODE_REGION=${LINODE_REGION:-ap-northeast}
-      - LINODE_TYPE=${LINODE_TYPE:-g6-nanode-1}
-      - ARIA2_RPC_URL=${ARIA2_RPC_URL}
-      - ARIA2_RPC_SECRET=${ARIA2_RPC_SECRET}
-      - AGGREGATION_WINDOW_MINUTES=${AGGREGATION_WINDOW_MINUTES:-5}
-      - BATCH_TASK_THRESHOLD=${BATCH_TASK_THRESHOLD:-10}
-      - IDLE_DESTROY_MINUTES=${IDLE_DESTROY_MINUTES:-15}
-      - DOWNLOAD_BASE_PATH=${DOWNLOAD_BASE_PATH:-/downloads}
-    ports:
-      - "8000:8000"
-    networks:
-      - swipe-network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # ============================================================
-  # Telegram 采集引擎
-  # ============================================================
-  collector:
-    build: ./collector
-    container_name: swipe-collector
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: swipe-app
     restart: unless-stopped
     volumes:
       - ./data:/data
       - ./sessions:/sessions
-    environment:
-      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
-      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
-      - TELEGRAM_PHONE=${TELEGRAM_PHONE}
-      - TELEGRAM_CHANNELS=${TELEGRAM_CHANNELS}
-      - SESSION_PATH=/sessions/collector
-      - PREVIEWS_PATH=/data/previews
-      - BACKEND_URL=http://backend:8000
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - swipe-network
-
-  # ============================================================
-  # 筛选前端 (PWA)
-  # ============================================================
-  frontend:
-    build: ./frontend
-    container_name: swipe-frontend
-    restart: unless-stopped
+    env_file:
+      - backend/.env
     ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    networks:
-      - swipe-network
-
-networks:
-  swipe-network:
-    driver: bridge
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 # ============================================================
 # 说明:
 #
-# 1. Aria2 服务需要单独部署在 NAS 节点上，不包含在此 compose 文件中
-#    请参考 aria2/docker-compose.yml 进行单独部署
+# 1. 单容器架构
+#    - 后端 FastAPI 服务
+#    - Telegram 采集器（在 FastAPI lifespan 中启动）
+#    - 前端静态文件（由 FastAPI 托管）
 #
-# 2. 首次启动 collector 时需要进行 Telegram 登录验证
-#    请使用 docker-compose logs -f collector 查看验证码提示
+# 2. Aria2 服务需要单独部署（支持跨机器部署）
+#    - 可以部署在 NAS 节点或远程服务器
+#    - 通过 ARIA2_RPC_URL 配置连接地址
+#    - 参考 aria2/docker-compose.yml 进行部署
 #
-# 3. 所有敏感配置通过 .env 文件传入
-#    请复制 .env.example 为 .env 并填入实际值
+# 3. 首次启动时需要进行 Telegram 登录验证
+#    请使用 docker-compose logs -f app 查看验证码提示
+#    会话文件会保存在 ./sessions 目录中
+#
+# 4. 所有配置通过 backend/.env 文件传入
+#    请复制 backend/.env.example 为 backend/.env 并填入实际值
+#
+# 5. 访问地址
+#    - 前端界面: http://localhost:8000
+#    - API 文档: http://localhost:8000/docs
+#    - 健康检查: http://localhost:8000/health
 # ============================================================

@@ -26,7 +26,26 @@ class Settings(BaseSettings):
     telegram_api_id: Optional[int] = Field(default=None, alias="TELEGRAM_API_ID")
     telegram_api_hash: Optional[str] = Field(default=None, alias="TELEGRAM_API_HASH")
     telegram_phone: Optional[str] = Field(default=None, alias="TELEGRAM_PHONE")
-    telegram_channels: str = Field(default="[]", alias="TELEGRAM_CHANNELS")
+    telegram_channels_raw: str = Field(default="[]", alias="TELEGRAM_CHANNELS")
+    session_path: str = Field(default="/sessions/collector", alias="SESSION_PATH")
+    
+    @property
+    def telegram_channels(self) -> List[Union[str, int]]:
+        """解析 Telegram 频道列表"""
+        import json
+        try:
+            channels = json.loads(self.telegram_channels_raw)
+            # 转换数字字符串为整数
+            result = []
+            for ch in channels:
+                if isinstance(ch, str) and ch.lstrip('-').isdigit():
+                    result.append(int(ch))
+                else:
+                    result.append(ch)
+            return result
+        except json.JSONDecodeError:
+            return []
+
     
     # PikPak
     pikpak_username: Optional[str] = Field(default=None, alias="PIKPAK_USERNAME")
@@ -59,14 +78,7 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         """SQLite 数据库 URL"""
         return f"sqlite+aiosqlite:///{self.database_path}"
-    
-    def get_telegram_channels(self) -> List[Union[str, int]]:
-        """解析 Telegram 频道列表"""
-        import json
-        try:
-            return json.loads(self.telegram_channels)
-        except json.JSONDecodeError:
-            return []
+
 
 
 @lru_cache

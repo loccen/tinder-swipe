@@ -1,3 +1,22 @@
+# ============================================================
+# Stage 1: 构建前端
+# ============================================================
+FROM node:20-alpine as frontend-builder
+
+WORKDIR /frontend
+
+# 安装前端依赖
+COPY frontend/package*.json ./
+RUN npm install
+
+# 构建前端
+COPY frontend/ ./
+RUN npm run build
+
+
+# ============================================================
+# Stage 2: 后端 + 前端静态文件
+# ============================================================
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -9,11 +28,14 @@ RUN apt-get update && apt-get install -y curl wget && \
     rm -rf /var/lib/apt/lists/*
 
 # 安装依赖
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
-COPY app/ ./app/
+COPY backend/app/ ./app/
+
+# 复制前端构建产物
+COPY --from=frontend-builder /frontend/dist ./static
 
 # 暴露端口
 EXPOSE 8000
