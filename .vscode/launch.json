@@ -22,28 +22,29 @@
       "justMyCode": false
     },
     {
-      "name": "Backend - 无 Telegram (仅API)",
-      "type": "python",
+      "name": "Frontend - Vite Dev Server",
+      "type": "node",
       "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "app.main:app",
-        "--reload",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000"
-      ],
-      "cwd": "${workspaceFolder}/backend",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/backend",
-        "TELEGRAM_API_ID": "",
-        "TELEGRAM_API_HASH": "",
-        "TELEGRAM_PHONE": ""
-      },
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
       "console": "integratedTerminal",
-      "justMyCode": false
+      "internalConsoleOptions": "neverOpen"
     }
   ],
-  "compounds": []
+  "compounds": [
+    {
+      "name": "全栈开发 (Backend + Frontend)",
+      "configurations": [
+        "Backend - FastAPI",
+        "Frontend - Vite Dev Server"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "fullstack",
+        "order": 1
+      }
+    }
+  ]
 }
